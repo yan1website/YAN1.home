@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#fffdf8">
+	<title>Product</title>
+	<style>
+		:root {
+			color-scheme: light;
+			--ink: #17221d;
+			--muted: #65736b;
+			--paper: #f5f1e8;
+			--panel: #fffdf8;
+			--accent: #d85d36;
+			--accent-dark: #a93d20;
+		}
+
+		* { box-sizing: border-box; }
+
+		body {
+			margin: 0;
+			min-height: 100vh;
+			color: var(--ink);
+			background: linear-gradient(135deg, var(--paper), #e4eee5);
+			font-family: Georgia, "Times New Roman", serif;
+		}
+
+		main {
+			width: 100%;
+			min-height: 100vh;
+			padding: clamp(12px, 3vw, 32px);
+			background: var(--panel);
+		}
+
+		h1 {
+			margin: 0 0 16px;
+			text-align: center;
+			font-size: clamp(24px, 5vw, 38px);
+		}
+
+		#product-image {
+			display: block;
+			width: 100%;
+			max-height: 78vh;
+			object-fit: contain;
+			background: #f3f0e9;
+		}
+
+		.actions {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+			margin-top: 0;
+		}
+
+		button {
+			min-width: 0;
+			padding: 16px 20px;
+			border: 0;
+			color: #fff;
+			background: var(--accent);
+			font: 700 16px/1 Arial, sans-serif;
+			cursor: pointer;
+			transition: background .2s ease, transform .2s ease;
+		}
+
+		button:hover { background: var(--accent-dark); transform: translateY(-1px); }
+		button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+		#status {
+			margin: 24px 0;
+			color: var(--muted);
+			text-align: center;
+			font: 15px/1.5 Arial, sans-serif;
+		}
+
+		@media (max-width: 520px) {
+			main { padding: 10px; }
+			#product-image { max-height: none; }
+			.actions { grid-template-columns: 1fr; gap: 8px; }
+		}
+	</style>
+</head>
+<body>
+	<main>
+		<h1>Product</h1>
+		<p id="status" role="status" hidden></p>
+		<img id="product-image" alt="Product" hidden>
+		<div class="actions" id="actions" hidden>
+			<button id="order-button" type="button">Order now</button>
+			<button id="share-button" type="button">Share</button>
+		</div>
+	</main>
+
+	<script>
+		const params = new URLSearchParams(window.location.search);
+		const imageUrl = (params.get('img') || '').trim();
+		const orderUrl = (params.get('ama') || '').trim();
+		const image = document.querySelector('#product-image');
+		const actions = document.querySelector('#actions');
+		const status = document.querySelector('#status');
+		const orderButton = document.querySelector('#order-button');
+		const shareButton = document.querySelector('#share-button');
+
+		function validHttpUrl(value) {
+			try {
+				const url = new URL(value);
+				return url.protocol === 'https:' || url.protocol === 'http:';
+			} catch {
+				return false;
+			}
+		}
+
+		if (validHttpUrl(imageUrl)) {
+			image.src = imageUrl;
+			image.hidden = false;
+			image.addEventListener('error', () => {
+				image.hidden = true;
+				status.textContent = 'The product image could not be loaded.';
+				status.hidden = false;
+			}, { once: true });
+		} else {
+			status.textContent = 'This product link is missing a valid image URL.';
+			status.hidden = false;
+		}
+
+		if (validHttpUrl(orderUrl)) {
+			orderButton.addEventListener('click', () => {
+				window.open(orderUrl, '_blank', 'noopener,noreferrer');
+			});
+			actions.hidden = false;
+		} else {
+			orderButton.hidden = true;
+			if (validHttpUrl(imageUrl)) actions.hidden = false;
+		}
+
+		shareButton.addEventListener('click', async () => {
+			const shareUrl = new URL(window.location.href);
+			shareUrl.search = '';
+			shareUrl.searchParams.set('img', imageUrl);
+			if (validHttpUrl(orderUrl)) shareUrl.searchParams.set('ama', orderUrl);
+
+			try {
+				if (navigator.share) {
+					await navigator.share({ title: 'Product', url: shareUrl.toString() });
+				} else if (navigator.clipboard?.writeText) {
+					await navigator.clipboard.writeText(shareUrl.toString());
+					shareButton.textContent = 'Link copied';
+					window.setTimeout(() => { shareButton.textContent = 'Share'; }, 2000);
+				} else {
+					window.prompt('Copy this product link:', shareUrl.toString());
+				}
+			} catch (error) {
+				if (error.name !== 'AbortError') {
+					window.prompt('Copy this product link:', shareUrl.toString());
+				}
+			}
+		});
+	</script>
+</body>
+</html>
