@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Random Dailymotion Video</title>
+	<style>
+		:root {
+			color-scheme: dark;
+			font-family: Arial, sans-serif;
+		}
+
+		body {
+			margin: 0;
+			min-height: 100vh;
+			background: #111827;
+			color: #f9fafb;
+		}
+
+		header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 1rem;
+			padding: 1rem 1.25rem;
+			background: #1f2937;
+		}
+
+		h1 {
+			margin: 0;
+			font-size: 1.1rem;
+		}
+
+		#status {
+			margin: 0;
+			color: #cbd5e1;
+			font-size: 0.9rem;
+		}
+
+		button {
+			border: 0;
+			border-radius: 0.35rem;
+			padding: 0.65rem 0.9rem;
+			background: #38bdf8;
+			color: #082f49;
+			cursor: pointer;
+			font-weight: 700;
+		}
+
+		button:disabled {
+			cursor: wait;
+			opacity: 0.65;
+		}
+
+		iframe {
+			display: block;
+			width: 100%;
+			aspect-ratio: 16 / 9;
+			height: auto;
+			border: 0;
+			background: #000;
+		}
+
+		.videoThumbnail {
+			position: relative;
+			width: 100%;
+			aspect-ratio: 16 / 9;
+			cursor: pointer;
+			overflow: hidden;
+			background: #000;
+		}
+
+		.videoThumbnail img {
+			display: block;
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+		}
+
+		.playButton {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 70px;
+			height: 70px;
+			border-radius: 50%;
+			background: rgba(0, 0, 0, 0.75);
+			color: white;
+			font-size: 30px;
+		}
+
+		.videoThumbnail:hover .playButton {
+			background: rgba(0, 0, 0, 0.9);
+		}
+
+		@media (max-width: 42rem) {
+			header {
+				align-items: flex-start;
+				flex-direction: column;
+			}
+		}
+	</style>
+</head>
+<body>
+	<header>
+		<h1>Random Dailymotion Video</h1>
+		<p id="status" role="status">Choosing a video...</p>
+		<button id="randomButton" type="button">Show another</button>
+	</header>
+
+	<div id="videoViewer" aria-live="polite"></div>
+
+	<script>
+		const SPREADSHEET_ID = '1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M';
+		const SHEET_NAME = 'Sheet1';
+
+		function sheetQueryUrl(query) {
+			const params = new URLSearchParams({
+				sheet: SHEET_NAME,
+				tqx: 'out:json',
+				tq: query
+			});
+			return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?${params}`;
+		}
+
+		async function querySheet(query) {
+			const response = await fetch(sheetQueryUrl(query), { cache: 'no-store' });
+			if (!response.ok) {
+				throw new Error(`Google Sheets request failed (${response.status})`);
+			}
+
+			const text = await response.text();
+			const start = text.indexOf('{');
+			const end = text.lastIndexOf('}');
+			if (start < 0 || end < start) {
+				throw new Error('Invalid Google Sheets response');
+			}
+
+			const result = JSON.parse(text.slice(start, end + 1));
+			if (result.status !== 'ok') {
+				throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed');
+			}
+			return result.table;
+		}
+
+		async function getRandomVideoId() {
+			const countTable = await querySheet('select count(K) where K is not null');
+			const rowCount = Number(countTable.rows?.[0]?.c?.[0]?.v || 0);
+			if (!Number.isInteger(rowCount) || rowCount < 1) {
+				throw new Error('No video IDs were found in column K.');
+			}
+
+			const randomOffset = Math.floor(Math.random() * rowCount);
+			const selectedTable = await querySheet(
+				`select K where K is not null limit 1 offset ${randomOffset}`
+			);
+			const videoId = String(selectedTable.rows?.[0]?.c?.[0]?.v || '').trim();
+			if (!videoId || /[\s/]/.test(videoId)) {
+				throw new Error('The selected cell does not contain a valid Dailymotion video ID.');
+			}
+			return videoId;
+		}
+
+		function playDailymotion(videoId) {
+			const iframe = document.createElement('iframe');
+			iframe.title = 'Dailymotion video';
+			iframe.allow = 'autoplay; fullscreen; picture-in-picture';
+			iframe.allowFullscreen = true;
+			iframe.src = `https://www.dailymotion.com/embed/video/${encodeURIComponent(videoId)}`;
+			document.querySelector('#videoViewer').replaceChildren(iframe);
+		}
+
+		async function loadRandomVideo() {
+			const status = document.querySelector('#status');
+			const button = document.querySelector('#randomButton');
+			const viewer = document.querySelector('#videoViewer');
+			button.disabled = true;
+			status.textContent = 'Choosing a video...';
+
+			try {
+				const videoId = await getRandomVideoId();
+				const response = await fetch(
+					`https://api.dailymotion.com/video/${encodeURIComponent(videoId)}?fields=id,thumbnail_url`
+				);
+				if (!response.ok) {
+					throw new Error(`Dailymotion thumbnail request failed (${response.status})`);
+				}
+				const video = await response.json();
+				const thumbnail = document.createElement('div');
+				thumbnail.className = 'videoThumbnail';
+				thumbnail.setAttribute('role', 'button');
+				thumbnail.setAttribute('tabindex', '0');
+				thumbnail.setAttribute('aria-label', 'Play Dailymotion video');
+				thumbnail.addEventListener('click', () => playDailymotion(videoId));
+				thumbnail.addEventListener('keydown', event => {
+					if (event.key === 'Enter' || event.key === ' ') {
+						event.preventDefault();
+						playDailymotion(videoId);
+					}
+				});
+
+				const image = document.createElement('img');
+				image.src = video.thumbnail_url;
+				image.alt = 'Dailymotion video thumbnail';
+				image.loading = 'lazy';
+				thumbnail.append(image);
+
+				const playButton = document.createElement('span');
+				playButton.className = 'playButton';
+				playButton.textContent = '▶';
+				thumbnail.append(playButton);
+				viewer.replaceChildren(thumbnail);
+				status.textContent = `Showing ${videoId}`;
+			} catch (error) {
+				viewer.replaceChildren();
+				status.textContent = error.message;
+			} finally {
+				button.disabled = false;
+			}
+		}
+
+		document.querySelector('#randomButton').addEventListener('click', loadRandomVideo);
+		loadRandomVideo();
+	</script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Random Internet Archive Item</title>
+	<style>
+		:root {
+			color-scheme: dark;
+			font-family: Arial, sans-serif;
+		}
+
+		body {
+			margin: 0;
+			min-height: 100vh;
+			background: #111827;
+			color: #f9fafb;
+		}
+
+		header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 1rem;
+			padding: 1rem 1.25rem;
+			background: #1f2937;
+		}
+
+		h1 {
+			margin: 0;
+			font-size: 1.1rem;
+		}
+
+		#status {
+			margin: 0;
+			color: #cbd5e1;
+			font-size: 0.9rem;
+		}
+
+		button {
+			border: 0;
+			border-radius: 0.35rem;
+			padding: 0.65rem 0.9rem;
+			background: #38bdf8;
+			color: #082f49;
+			cursor: pointer;
+			font-weight: 700;
+		}
+
+		button:disabled {
+			cursor: wait;
+			opacity: 0.65;
+		}
+
+		iframe {
+			display: block;
+			width: 100%;
+			height: calc(100vh - 68px);
+			min-height: 32rem;
+			border: 0;
+			background: #000;
+		}
+	</style>
+</head>
+<body>
+	<header>
+		<h1>Random Internet Archive Item</h1>
+		<p id="status" role="status">Choosing an item...</p>
+		<button id="randomButton" type="button">Show another</button>
+	</header>
+
+	<iframe id="archiveViewer" title="Internet Archive item" allowfullscreen></iframe>
+
+	<script>
+		const SPREADSHEET_ID = '1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M';
+		const SHEET_NAME = 'Sheet1';
+
+		function sheetQueryUrl(query) {
+			const params = new URLSearchParams({
+				sheet: SHEET_NAME,
+				tqx: 'out:json',
+				tq: query
+			});
+			return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?${params}`;
+		}
+
+		async function querySheet(query) {
+			const response = await fetch(sheetQueryUrl(query), { cache: 'no-store' });
+			if (!response.ok) {
+				throw new Error(`Google Sheets request failed (${response.status})`);
+			}
+
+			const text = await response.text();
+			const start = text.indexOf('{');
+			const end = text.lastIndexOf('}');
+			if (start < 0 || end < start) {
+				throw new Error('Invalid Google Sheets response');
+			}
+
+			const result = JSON.parse(text.slice(start, end + 1));
+			if (result.status !== 'ok') {
+				throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed');
+			}
+			return result.table;
+		}
+
+		async function getRandomItemId() {
+			const countTable = await querySheet('select count(J) where J is not null');
+			const rowCount = Number(countTable.rows?.[0]?.c?.[0]?.v || 0);
+			if (!Number.isInteger(rowCount) || rowCount < 1) {
+				throw new Error('No item IDs were found in column J.');
+			}
+
+			const randomOffset = Math.floor(Math.random() * rowCount);
+			const selectedTable = await querySheet(
+				`select J where J is not null limit 1 offset ${randomOffset}`
+			);
+			const itemId = String(selectedTable.rows?.[0]?.c?.[0]?.v || '').trim();
+			if (!itemId || /[\s/]/.test(itemId)) {
+				throw new Error('The selected cell does not contain a valid Internet Archive item ID.');
+			}
+			return itemId;
+		}
+
+		async function loadRandomItem() {
+			const status = document.querySelector('#status');
+			const button = document.querySelector('#randomButton');
+			const viewer = document.querySelector('#archiveViewer');
+			button.disabled = true;
+			status.textContent = 'Choosing an item...';
+
+			try {
+				const itemId = await getRandomItemId();
+				viewer.src = `https://archive.org/embed/${encodeURIComponent(itemId)}`;
+				status.textContent = `Showing ${itemId}`;
+			} catch (error) {
+				viewer.removeAttribute('src');
+				status.textContent = error.message;
+			} finally {
+				button.disabled = false;
+			}
+		}
+
+		document.querySelector('#randomButton').addEventListener('click', loadRandomItem);
+		loadRandomItem();
+	</script>
+</body>
+</html>

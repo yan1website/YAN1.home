@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Random YouTube Video</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+    main { width: min(100%, 900px); text-align: center; }
+    h1 { margin: 0 0 20px; }
+    #status { margin: 20px 0; color: #aaa; }
+    .video-container {
+      display: none;
+      position: relative;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      background: #000;
+      border-radius: 12px;
+    }
+    .thumbnail-button,
+    .thumbnail-button img,
+    iframe { width: 100%; height: 100%; border: 0; }
+    .thumbnail-button {
+      position: absolute;
+      inset: 0;
+      padding: 0;
+      cursor: pointer;
+      background: #000;
+    }
+    .thumbnail-button img { display: block; object-fit: cover; }
+    .play-icon {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 72px;
+      height: 52px;
+      border-radius: 14px;
+      background: #f00;
+    }
+    .play-icon::after {
+      content: '';
+      position: absolute;
+      top: 14px;
+      left: 29px;
+      border-top: 12px solid transparent;
+      border-bottom: 12px solid transparent;
+      border-left: 18px solid #fff;
+    }
+    iframe { display: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Random Video</h1>
+    <p id="status">Loading video...</p>
+    <div id="videoContainer" class="video-container">
+      <button id="thumbnailButton" class="thumbnail-button" type="button" aria-label="Play video">
+        <img id="videoThumbnail" alt="Video thumbnail">
+        <span class="play-icon" aria-hidden="true"></span>
+      </button>
+      <iframe
+        id="youtubePlayer"
+        title="Random YouTube video"
+        referrerpolicy="strict-origin-when-cross-origin"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen>
+      </iframe>
+    </div>
+  </main>
+
+  <script>
+    const SPREADSHEET_ID = '1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M';
+    const SHEET_NAME = 'Sheet1';
+
+    function sheetQueryUrl(query) {
+      const params = new URLSearchParams({
+        sheet: SHEET_NAME,
+        tqx: 'out:json',
+        tq: query
+      });
+      return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?${params}`;
+    }
+
+    async function querySheet(query) {
+      const response = await fetch(sheetQueryUrl(query), { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Google Sheets request failed (${response.status})`);
+
+      const text = await response.text();
+      const start = text.indexOf('{');
+      const end = text.lastIndexOf('}');
+      if (start < 0 || end < start) throw new Error('Invalid Google Sheets response');
+
+      const result = JSON.parse(text.slice(start, end + 1));
+      if (result.status !== 'ok') {
+        throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed');
+      }
+      return result.table;
+    }
+
+    async function getRandomVideoId() {
+      const countTable = await querySheet('select count(I) where I is not null');
+      const rowCount = Number(countTable.rows?.[0]?.c?.[0]?.v || 0);
+      if (!Number.isInteger(rowCount) || rowCount < 1) {
+        throw new Error('No YouTube IDs were found in column I.');
+      }
+
+      const randomOffset = Math.floor(Math.random() * rowCount);
+      const selectedTable = await querySheet(
+        `select I where I is not null limit 1 offset ${randomOffset}`
+      );
+      const cellValue = String(selectedTable.rows?.[0]?.c?.[0]?.v || '').trim();
+      const videoId = cellValue.split('?')[0].split('&')[0];
+      if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+        throw new Error('The selected cell does not contain a valid YouTube ID.');
+      }
+      return videoId;
+    }
+
+    async function loadRandomVideo() {
+      const status = document.querySelector('#status');
+      try {
+        const videoId = await getRandomVideoId();
+          const player = document.querySelector('#youtubePlayer');
+          const thumbnailButton = document.querySelector('#thumbnailButton');
+          const embedUrl =
+            `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?origin=${encodeURIComponent(window.location.origin)}`;
+          document.querySelector('#videoThumbnail').src =
+            `https://img.youtube.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`;
+          thumbnailButton.addEventListener('click', () => {
+            player.src = embedUrl;
+            player.style.display = 'block';
+            thumbnailButton.style.display = 'none';
+          }, { once: true });
+        document.querySelector('#videoContainer').style.display = 'block';
+        status.style.display = 'none';
+      } catch (error) {
+        console.error(error);
+        status.textContent = error.message || 'Unable to load a video.';
+      }
+    }
+
+    loadRandomVideo();
+  </script>
+</body>
+</html>

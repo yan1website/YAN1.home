@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>GitHub Search Viewer</title>
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+
+<style>
+
+:root {
+    --bg: #f4f7fb;
+    --panel: #ffffff;
+    --panel-2: #f8fafc;
+    --text: #1f2937;
+    --muted: #5b6475;
+    --line: #dfe7f1;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --accent: #10b981;
+}
+
+body{
+    font-family: Arial, Helvetica, sans-serif;
+    background: linear-gradient(180deg, #eef4ff 0%, var(--bg) 100%);
+    color: var(--text);
+    margin:0;
+    padding:20px;
+}
+
+
+.search{
+    position:sticky;
+    top:0;
+    z-index:10;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(8px);
+    padding:18px 20px;
+    border-bottom:1px solid var(--line);
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+}
+
+.search-inner {
+    max-width: 980px;
+    margin: 0 auto;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+input{
+    flex:1;
+    padding:14px 16px;
+    font-size:18px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    outline:none;
+    background:#fff;
+    transition:border-color .2s ease, box-shadow .2s ease;
+}
+
+input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(37,99,235,0.12);
+}
+
+button{
+    padding:14px 20px;
+    cursor:pointer;
+    border:none;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color:white;
+    border-radius:12px;
+    font-size:16px;
+    font-weight:700;
+    transition: transform .15s ease, box-shadow .2s ease;
+    box-shadow: 0 10px 18px rgba(37,99,235,0.18);
+}
+
+button:hover{
+    transform: translateY(-1px);
+}
+
+#results {
+    max-width: 980px;
+    margin: 24px auto 0;
+}
+
+.repo{
+    background: var(--panel);
+    margin:20px 0;
+    padding:22px 24px;
+    border-radius:16px;
+    border:1px solid var(--line);
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+}
+
+.repo h2 {
+    margin:0 0 10px;
+    font-size: 1.5rem;
+    color: var(--text);
+}
+
+.repo .meta {
+    display:flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 12px 0;
+}
+
+.repo .tag {
+    background: var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:6px 10px;
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
+.repo p {
+    margin:10px 0;
+    color: var(--text);
+    line-height:1.6;
+}
+
+.repo .label {
+    font-weight:700;
+    color: var(--muted);
+}
+
+.repo a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.repo a:hover {
+    text-decoration: underline;
+}
+
+.repo .website {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.18);
+}
+
+#loading{
+    max-width:980px;
+    margin: 16px auto;
+    text-align:center;
+    padding:18px;
+    color: var(--muted);
+    font-weight: 700;
+}
+
+@media (max-width: 640px) {
+    body { padding: 0; }
+    .search-inner {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    input, button { width:100%; }
+    .repo { padding:18px; }
+}
+
+</style>
+
+
+</head>
+
+
+<body>
+
+
+
+<div class="search">
+    <div class="search-inner">
+        <input id="box" placeholder="Search GitHub">
+
+        <button onclick="searchUser()">
+            Search
+        </button>
+    </div>
+</div>
+
+
+
+<div id="results"></div>
+
+
+<div id="loading"></div>
+
+
+
+
+
+<script>
+
+
+const SHEET_ID =
+"1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M";
+
+
+let keyword="";
+
+let page=1;
+
+let loading=false;
+
+let finished=false;
+
+
+
+
+
+
+
+// Read only required Google Sheet data
+
+async function sheet(query){
+
+
+    const url =
+
+    "https://docs.google.com/spreadsheets/d/" +
+
+    SHEET_ID +
+
+    "/gviz/tq?tq=" +
+
+    encodeURIComponent(query);
+
+
+
+    const res = await fetch(url);
+
+    const text = await res.text();
+
+
+    return JSON.parse(
+
+        text.substring(
+
+            text.indexOf("{"),
+
+            text.lastIndexOf("}")+1
+
+        )
+
+    ).table;
+
+}
+
+
+
+
+
+
+
+// Get random value from Column D
+
+async function randomKeyword(){
+
+
+    const count = await sheet(
+
+        "select count(D) where D is not null"
+
+    );
+
+
+    const total =
+    count.rows[0].c[0].v;
+
+
+    if(!total)
+        return "";
+
+
+
+    const row =
+    Math.floor(Math.random()*total);
+
+
+
+    const data = await sheet(
+
+        "select D where D is not null limit 1 offset "
+
+        + row
+
+    );
+
+
+    return data.rows[0].c[0].v;
+
+}
+
+
+
+
+
+
+
+
+
+// GitHub search
+
+async function load(){
+
+
+    if(loading || finished || !keyword)
+        return;
+
+
+
+    loading=true;
+
+
+    document.getElementById("loading").innerHTML =
+    "Loading...";
+
+
+
+    try{
+
+
+        const url =
+
+        "https://api.github.com/search/repositories?q=" +
+
+        encodeURIComponent(keyword) +
+
+        "&sort=stars&order=desc" +
+
+        "&per_page=20&page=" +
+
+        page;
+
+
+
+        const res =
+        await fetch(url);
+
+
+
+        const data =
+        await res.json();
+
+
+
+
+        if(!data.items || data.items.length==0){
+
+
+            finished=true;
+
+
+            document.getElementById("loading").innerHTML =
+            "No more results";
+
+
+            loading=false;
+
+            return;
+
+        }
+
+
+
+
+
+
+        let html="";
+
+
+
+        data.items.forEach(repo=>{
+
+            const websiteUrl = repo.homepage && repo.homepage.trim() ? repo.homepage : "";
+
+            html += `
+
+            <div class="repo">
+                <h2>${repo.full_name}</h2>
+
+                <p>${repo.description || "No description"}</p>
+
+                <div class="meta">
+                    <span class="tag">⭐ ${repo.stargazers_count} Stars</span>
+                    <span class="tag">🍴 ${repo.forks_count} Forks</span>
+                    <span class="tag">Language: ${repo.language || "Unknown"}</span>
+                    <span class="tag">Owner: ${repo.owner.login}</span>
+                </div>
+
+                <p><span class="label">Topics:</span> ${repo.topics && repo.topics.length ? repo.topics.join(", ") : "None"}</p>
+
+                <p><span class="label">License:</span> ${repo.license ? repo.license.name : "None"}</p>
+
+                <p><span class="label">Updated:</span> ${repo.updated_at}</p>
+
+                ${websiteUrl ? `<p><span class="label">Website:</span> <a class="website" href="${websiteUrl}" target="_blank" rel="noopener noreferrer">${websiteUrl}</a></p>` : ""}
+
+                <p><a href="${repo.html_url}" target="_blank" rel="noopener noreferrer">Open Repository</a></p>
+            </div>
+
+            `;
+
+
+        });
+
+
+
+
+        document
+        .getElementById("results")
+        .insertAdjacentHTML(
+            "beforeend",
+            html
+        );
+
+
+
+        page++;
+
+
+        document.getElementById("loading").innerHTML="";
+
+
+    }
+
+
+    catch(e){
+
+        console.log(e);
+
+        document.getElementById("loading").innerHTML =
+        "Error";
+
+    }
+
+
+
+    loading=false;
+
+
+}
+
+
+
+
+
+
+
+
+
+// Manual search
+
+function searchUser(){
+
+
+    keyword =
+    document.getElementById("box")
+    .value.trim();
+
+
+
+    if(!keyword)
+        return;
+
+
+
+    page=1;
+
+    finished=false;
+
+
+    document.getElementById("results").innerHTML="";
+
+
+    load();
+
+
+}
+
+
+
+
+
+
+
+
+// Infinite scroll
+
+window.addEventListener("scroll",()=>{
+
+
+    if(
+
+        window.innerHeight +
+        window.scrollY >=
+        document.body.offsetHeight-500
+
+    ){
+
+        load();
+
+    }
+
+
+});
+
+
+
+
+
+
+
+
+
+// Automatic Sheet search
+
+window.onload=async()=>{
+
+
+    keyword =
+    await randomKeyword();
+
+
+
+    if(keyword){
+
+
+        document.getElementById("box").value =
+        keyword;
+
+
+        load();
+
+    }
+
+
+};
+
+
+
+</script>
+
+
+</body>
+
+</html>

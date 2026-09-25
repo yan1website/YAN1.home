@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapora - Smart Interactive Maps</title>
+  <meta name="description" content="Mapora: A smart, interactive map that brings places, people, and information together.">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+    
+    /* Home Icon */
+    .home-icon {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 1000;
+      font-size: 24px;
+      text-decoration: none;
+      color: #1a1a1a;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 8px 12px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transition: all 0.2s;
+    }
+    
+    .home-icon:hover {
+      background: #f5f5f5;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      color: #4285f4;
+    }
+    
+    /* Mapora Title */
+    .mapora-title {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .mapora-name {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .mapora-name span {
+      color: #4285f4;
+    }
+    
+    .mapora-description {
+      font-size: 12px;
+      font-weight: 500;
+      background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      background-size: 300% 300%;
+      animation: gradientAnimation 3s ease infinite;
+    }
+    
+    @keyframes gradientAnimation {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
+    /* Route Finder Toggle - Below Title */
+    .panel-toggle {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 100px;
+      z-index: 1000;
+      background: white;
+      border: none;
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      transition: all 0.2s;
+      /* Highlighting styles */
+      outline: 3px solid #4285f4;
+      outline-offset: 2px;
+    }
+    
+    .panel-toggle:hover {
+      background: #f5f5f5;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    
+    .panel-toggle.hidden {
+      display: none;
+    }
+    
+    /* Search Bar - Below Route Finder */
+    .search-container {
+      position: absolute;
+      top: 160px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      width: 90%;
+      max-width: 500px;
+    }
+    
+    .search-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    
+    .search-input {
+      width: 100%;
+      padding: 14px 48px 14px 16px;
+      font-size: 15px;
+      border: none;
+      border-radius: 8px;
+      background: white;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      outline: none;
+      transition: box-shadow 0.2s;
+    }
+    
+    .search-input:focus {
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    
+    .search-btn {
+      position: absolute;
+      right: 8px;
+      background: #4285f4;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      color: white;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    
+    .search-btn:hover {
+      background: #3367d6;
+    }
+    
+    .search-suggestions {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      margin-top: 4px;
+      max-height: 300px;
+      overflow-y: auto;
+      display: none;
+    }
+    
+    .search-suggestions.active {
+      display: block;
+    }
+    
+    .suggestion-item {
+      padding: 12px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+      color: #333;
+    }
+    
+    .suggestion-item:last-child {
+      border-bottom: none;
+    }
+    
+    .suggestion-item:hover {
+      background: #f5f5f5;
+    }
+    
+    /* Left Side Panel */
+    .side-panel {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 360px;
+      background: white;
+      box-shadow: 2px 0 20px rgba(0,0,0,0.1);
+      z-index: 1001;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .side-panel.open {
+      transform: translateX(0);
+    }
+    
+    .panel-header {
+      padding: 20px;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .panel-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1a1a1a;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .panel-title span {
+      font-size: 24px;
+    }
+    
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #666;
+      padding: 4px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    
+    .close-btn:hover {
+      background: #f0f0f0;
+    }
+    
+    .panel-content {
+      padding: 20px;
+      flex: 1;
+      overflow-y: auto;
+    }
+    
+    .input-group {
+      margin-bottom: 16px;
+    }
+    
+    .input-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #666;
+      margin-bottom: 6px;
+    }
+    
+    .route-input {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 14px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    
+    .route-input:focus {
+      border-color: #4285f4;
+      box-shadow: 0 0 0 3px rgba(66,133,244,0.1);
+    }
+    
+    .calculate-btn {
+      width: 100%;
+      padding: 14px;
+      background: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .calculate-btn:hover {
+      background: #3367d6;
+    }
+    
+    .calculate-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    /* Route Results */
+    .route-results {
+      margin-top: 24px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      display: none;
+    }
+    
+    .route-results.active {
+      display: block;
+    }
+    
+    .result-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #e8e8e8;
+    }
+    
+    .result-row:last-child {
+      border-bottom: none;
+    }
+    
+    .result-label {
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .result-value {
+      color: #1a1a1a;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    
+    /* Live Location Button */
+    .live-location-btn {
+      position: absolute;
+      bottom: 30px;
+      right: 16px;
+      z-index: 1000;
+      background: white;
+      border: none;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      transition: all 0.2s;
+      /* Highlighting styles */
+      outline: 3px solid #4285f4;
+      outline-offset: 2px;
+    }
+    
+    .live-location-btn:hover {
+      background: #f5f5f5;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    
+    .live-location-btn.active {
+      background: #e8f0fe;
+      color: #4285f4;
+    }
+    
+    /* Footer */
+    .footer {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      font-size: 12px;
+      color: #666;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+    
+    /* Hide Zoom Controls */
+    .leaflet-control-zoom {
+      display: none !important;
+    }
+    
+    /* Loading Spinner */
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Responsive */
+    @media (max-width: 480px) {
+      .side-panel {
+        width: 100%;
+      }
+      
+      .search-container {
+        width: calc(100% - 32px);
+        left: 16px;
+        transform: none;
+      }
+      
+      .panel-toggle {
+        left: 16px;
+        transform: none;
+      }
+      
+      .mapora-title {
+        width: calc(100% - 32px);
+        left: 16px;
+        transform: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Home Icon -->
+  <a href="https://yan-shun-081.github.io/yan-1-website.com/" class="home-icon" title="Home">🏠</a>
+
+<!-- Mapora Title -->
+<div class="mapora-title">
+  <div class="mapora-name"><span>🧭</span> Mapora</div>
+  <div class="mapora-description">A smart, interactive map that brings places, people, and information together—helping you discover, share, and explore locations with clarity and confidence.</div>
+</div>
+
+<!-- Route Finder Toggle - Below Title -->
+<button class="panel-toggle" id="panelToggle" title="Open Route Finder">
+  🧭
+</button>
+
+<!-- Search Bar - Below Route Finder -->
+<div class="search-container">
+  <div class="search-wrapper">
+    <input type="text" class="search-input" id="searchInput" placeholder="Search for a place...">
+    <button class="search-btn" id="searchBtn">Search</button>
+  </div>
+  <div class="search-suggestions" id="searchSuggestions"></div>
+</div>
+
+<!-- Left Side Panel -->
+<div class="side-panel" id="sidePanel">
+  <div class="panel-header">
+    <div class="panel-title">
+      <span>🗺️</span> Route Finder
+    </div>
+    <button class="close-btn" id="closePanel">&times;</button>
+  </div>
+  
+  <div class="panel-content">
+    <div class="input-group">
+      <label class="input-label">Starting Point</label>
+      <input type="text" class="route-input" id="startInput" placeholder="Enter start location">
+    </div>
+    
+    <div class="input-group">
+      <label class="input-label">Destination</label>
+      <input type="text" class="route-input" id="endInput" placeholder="Enter destination">
+    </div>
+    
+    <button class="calculate-btn" id="calculateBtn">
+      Get Directions
+    </button>
+    
+    <div class="route-results" id="routeResults">
+      <div class="result-title">
+        <span>📍</span> Route Information
+      </div>
+      <div class="result-row">
+        <span class="result-label">Distance</span>
+        <span class="result-value" id="distanceValue">—</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Map Container -->
+<div id="map"></div>
+
+<!-- Live Location Button -->
+<button class="live-location-btn" id="liveLocationBtn" title="My Location">
+  📍
+</button>
+
+<!-- Footer -->
+<div class="footer">
+  © 2026 Mapora · Built with ❤️ by YAN
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// =====================
+// Configuration
+// =====================
+const OSRM_BASE = "https://router.project-osrm.org";
+const NOMINATIM_BASE = "https://nominatim.openstreetmap.org/search";
+
+// =====================
+// Utility Functions
+// =====================
+function formatDistance(meters) {
+  if (meters >= 1000) return (meters / 1000).toFixed(1) + " km";
+  return Math.round(meters) + " m";
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const toRad = v => v * Math.PI / 180;
+  const R = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// =====================
+// Geocoding
+// =====================
+async function geocode(query) {
+  const url = NOMINATIM_BASE + "?format=json&q=" + encodeURIComponent(query) + "&limit=1";
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
+  const data = await res.json();
+  if (data && data.length > 0) {
+    return {
+      lat: parseFloat(data[0].lat),
+      lon: parseFloat(data[0].lon),
+      name: data[0].display_name
+    };
+  }
+  return null;
+}
+
+async function searchPlaces(query) {
+  if (!query || query.length < 2) return [];
+  const url = NOMINATIM_BASE + "?format=json&q=" + encodeURIComponent(query) + "&limit=5";
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
+  const data = await res.json();
+  return data.map(item => ({
+    lat: parseFloat(item.lat),
+    lon: parseFloat(item.lon),
+    name: item.display_name
+  }));
+}
+
+// =====================
+// Routing
+// =====================
+async function getRoute(lat1, lon1, lat2, lon2) {
+  const coords = lon1 + "," + lat1 + ";" + lon2 + "," + lat2;
+  const url = OSRM_BASE + "/route/v1/driving/" + coords + "?overview=full&geometries=geojson";
+  const res = await fetch(url);
+  const data = await res.json();
+  if (data.code === "Ok" && data.routes && data.routes.length > 0) {
+    const route = data.routes[0];
+    const coordsLatLng = route.geometry.coordinates.map(c => [c[1], c[0]]);
+    return {
+      distance: route.distance,
+      duration: route.duration,
+      coords: coordsLatLng
+    };
+  }
+  throw new Error("Could not find route");
+}
+
+// =====================
+// Map Initialization
+// =====================
+const map = L.map('map', {
+  zoomControl: false
+}).setView([20, 0], 2);
+
+// Standard OpenStreetMap tiles
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+
+// Layer groups
+let routeLayer = null;
+let startMarker = null;
+let endMarker = null;
+let searchMarker = null;
+let liveMarker = null;
+let liveCircle = null;
+let watchId = null;
+
+// =====================
+// DOM Elements
+// =====================
+const panelToggle = document.getElementById('panelToggle');
+const sidePanel = document.getElementById('sidePanel');
+const closePanel = document.getElementById('closePanel');
+const startInput = document.getElementById('startInput');
+const endInput = document.getElementById('endInput');
+const calculateBtn = document.getElementById('calculateBtn');
+const routeResults = document.getElementById('routeResults');
+const distanceValue = document.getElementById('distanceValue');
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const searchSuggestions = document.getElementById('searchSuggestions');
+const liveLocationBtn = document.getElementById('liveLocationBtn');
+
+// =====================
+// Panel Toggle
+// =====================
+panelToggle.addEventListener('click', () => {
+  sidePanel.classList.add('open');
+  panelToggle.classList.add('hidden');
+});
+
+closePanel.addEventListener('click', () => {
+  sidePanel.classList.remove('open');
+  panelToggle.classList.remove('hidden');
+});
+
+// =====================
+// Search Functionality
+// =====================
+let searchTimeout = null;
+let currentSearchResult = null;
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  const query = searchInput.value.trim();
+  
+  if (query.length < 2) {
+    searchSuggestions.classList.remove('active');
+    return;
+  }
+  
+  searchTimeout = setTimeout(async () => {
+    const places = await searchPlaces(query);
+    if (places.length > 0) {
+      searchSuggestions.innerHTML = places.map(p => 
+        `<div class="suggestion-item" data-lat="${p.lat}" data-lon="${p.lon}">
+          ${p.name}
+        </div>`
+      ).join('');
+      searchSuggestions.classList.add('active');
+    } else {
+      searchSuggestions.classList.remove('active');
+    }
+  }, 300);
+});
+
+searchSuggestions.addEventListener('click', (e) => {
+  if (e.target.classList.contains('suggestion-item') || e.target.closest('.suggestion-item')) {
+    const item = e.target.closest('.suggestion-item');
+    const lat = parseFloat(item.dataset.lat);
+    const lon = parseFloat(item.dataset.lon);
+    const name = item.textContent.trim();
+    
+    searchInput.value = name;
+    searchSuggestions.classList.remove('active');
+    
+    goToLocation(lat, lon, name);
+    currentSearchResult = { lat, lon, name };
+  }
+});
+
+searchBtn.addEventListener('click', async () => {
+  const query = searchInput.value.trim();
+  if (!query) return;
+  
+  const place = await geocode(query);
+  if (place) {
+    goToLocation(place.lat, place.lon, place.name);
+    searchSuggestions.classList.remove('active');
+    currentSearchResult = place;
+  } else {
+    alert('Place not found');
+  }
+});
+
+searchInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    searchBtn.click();
+  }
+});
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.search-container')) {
+    searchSuggestions.classList.remove('active');
+  }
+});
+
+function goToLocation(lat, lon, name) {
+  if (searchMarker) {
+    map.removeLayer(searchMarker);
+  }
+  
+  searchMarker = L.marker([lat, lon]).addTo(map)
+    .bindPopup(`<strong>${name}</strong>`)
+    .openPopup();
+  
+  map.setView([lat, lon], 14);
+}
+
+// =====================
+// Route Calculation
+// =====================
+let currentRoute = null;
+
+calculateBtn.addEventListener('click', async () => {
+  const startQuery = startInput.value.trim();
+  const endQuery = endInput.value.trim();
+  
+  if (!startQuery || !endQuery) {
+    alert('Please enter both start and destination');
+    return;
+  }
+  
+  calculateBtn.disabled = true;
+  calculateBtn.innerHTML = '<span class="loading"></span>Calculating...';
+  
+  try {
+    const startPlace = await geocode(startQuery);
+    const endPlace = await geocode(endQuery);
+    
+    if (!startPlace || !endPlace) {
+      alert('Could not find one or both locations');
+      return;
+    }
+    
+    // Clear previous route
+    clearRoute();
+    
+    // Add markers
+    startMarker = L.marker([startPlace.lat, startPlace.lon])
+      .addTo(map)
+      .bindPopup(`<strong>Start:</strong> ${startPlace.name}`);
+    
+    endMarker = L.marker([endPlace.lat, endPlace.lon])
+      .addTo(map)
+      .bindPopup(`<strong>End:</strong> ${endPlace.name}`);
+    
+    // Get route
+    const route = await getRoute(startPlace.lat, startPlace.lon, endPlace.lat, endPlace.lon);
+    currentRoute = {
+      start: startPlace,
+      end: endPlace,
+      route: route
+    };
+    
+    // Draw route
+    routeLayer = L.polyline(route.coords, {
+      color: '#4285f4',
+      weight: 5,
+      opacity: 0.8
+    }).addTo(map);
+    
+    // Fit bounds
+    map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+    
+    // Update results
+    distanceValue.textContent = formatDistance(route.distance);
+    routeResults.classList.add('active');
+    
+  } catch (err) {
+    console.error(err);
+    alert('Error calculating route: ' + err.message);
+  } finally {
+    calculateBtn.disabled = false;
+    calculateBtn.innerHTML = 'Get Directions';
+  }
+});
+
+function clearRoute() {
+  if (routeLayer) {
+    map.removeLayer(routeLayer);
+    routeLayer = null;
+  }
+  if (startMarker) {
+    map.removeLayer(startMarker);
+    startMarker = null;
+  }
+  if (endMarker) {
+    map.removeLayer(endMarker);
+    endMarker = null;
+  }
+  routeResults.classList.remove('active');
+  currentRoute = null;
+}
+
+// =====================
+// Live Location
+// =====================
+function startLiveLocation() {
+  if (!navigator.geolocation) {
+    alert('Geolocation is not supported by your browser');
+    return;
+  }
+  
+  liveLocationBtn.classList.add('active');
+  
+  watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      const acc = pos.coords.accuracy || 50;
+      
+      if (liveMarker) {
+        liveMarker.setLatLng([lat, lon]);
+        liveCircle.setLatLng([lat, lon]).setRadius(acc);
+      } else {
+        const liveIcon = L.divIcon({
+          html: '<div style="background:#4285f4;width:14px;height:14px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        });
+        
+        liveMarker = L.marker([lat, lon], { icon: liveIcon })
+          .addTo(map)
+          .bindPopup('Your location');
+        
+        liveCircle = L.circle([lat, lon], {
+          radius: acc,
+          color: '#4285f4',
+          fillColor: '#4285f4',
+          fillOpacity: 0.15,
+          weight: 1
+        }).addTo(map);
+        
+        map.setView([lat, lon], 15);
+      }
+    },
+    (err) => {
+      alert('Could not get your location. Please enable location services.');
+      liveLocationBtn.classList.remove('active');
+      watchId = null;
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 5000,
+      timeout: 10000
+    }
+  );
+}
+
+liveLocationBtn.addEventListener('click', () => {
+  if (!navigator.geolocation) {
+    alert('Geolocation is not supported by your browser');
+    return;
+  }
+  
+  if (watchId) {
+    // Stop watching
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    liveLocationBtn.classList.remove('active');
+    
+    if (liveMarker) {
+      map.removeLayer(liveMarker);
+      liveMarker = null;
+    }
+    if (liveCircle) {
+      map.removeLayer(liveCircle);
+      liveCircle = null;
+    }
+    return;
+  }
+  
+  startLiveLocation();
+});
+
+// Automatically start live location when page loads
+window.addEventListener('load', () => {
+  // Small delay to ensure map is fully initialized
+  setTimeout(() => {
+    startLiveLocation();
+  }, 500);
+});
+
+</script>
+
+</body>
+</html>

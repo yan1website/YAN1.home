@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Wikipedia Viewer</title>
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+
+<style>
+
+body{
+    margin:0;
+    font-family:Arial;
+    background:#f5f5f5;
+}
+
+
+.top{
+
+    position:sticky;
+    top:0;
+    background:white;
+    padding:15px;
+    z-index:10;
+
+}
+
+
+input{
+
+    width:70%;
+    padding:12px;
+    font-size:18px;
+
+}
+
+
+button{
+
+    padding:12px 18px;
+    font-size:16px;
+    cursor:pointer;
+
+}
+
+
+#summary{
+
+    background:white;
+    margin:15px;
+    padding:20px;
+    border-radius:10px;
+    line-height:1.6;
+
+}
+
+
+iframe{
+
+    width:100%;
+    height:80vh;
+    border:0;
+
+}
+
+</style>
+
+
+</head>
+
+
+<body>
+
+
+
+<div class="top">
+
+<input id="searchBox" placeholder="Search Wikipedia">
+
+
+<button onclick="searchUser()">
+Search
+</button>
+
+
+</div>
+
+
+
+<div id="summary">
+Loading summary...
+</div>
+
+
+<iframe id="viewer"></iframe>
+
+
+
+
+
+<script>
+
+
+const SHEET_ID =
+"1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M";
+
+
+
+let currentTitle = "";
+
+
+
+
+
+
+// Read Google Sheet
+
+async function getSheetData(query){
+
+
+    const url =
+
+    "https://docs.google.com/spreadsheets/d/" +
+
+    SHEET_ID +
+
+    "/gviz/tq?tq=" +
+
+    encodeURIComponent(query);
+
+
+
+    const response =
+    await fetch(url);
+
+
+
+    const text =
+    await response.text();
+
+
+
+
+    const json = JSON.parse(
+
+        text.substring(
+
+            text.indexOf("{"),
+
+            text.lastIndexOf("}") + 1
+
+        )
+
+    );
+
+
+
+    return json.table;
+
+}
+
+
+
+
+
+
+
+// Wikipedia search
+
+async function searchWikipedia(keyword){
+
+
+    const api =
+
+    "https://en.wikipedia.org/w/api.php?" +
+
+    "action=query&list=search&srsearch=" +
+
+    encodeURIComponent(keyword) +
+
+    "&format=json&origin=*";
+
+
+
+
+    const response =
+    await fetch(api);
+
+
+
+    const data =
+    await response.json();
+
+
+
+
+    if(data.query.search.length > 0){
+
+
+        return data.query.search[0].title;
+
+
+    }
+
+
+    return null;
+
+}
+
+
+
+
+
+
+
+// Open Wikipedia page
+
+function openWikipedia(title){
+
+
+    currentTitle = title;
+
+
+
+    const url =
+
+    "https://en.wikipedia.org/wiki/" +
+
+    encodeURIComponent(
+
+        title.replace(/ /g,"_")
+
+    );
+
+
+
+    document.getElementById("viewer").src =
+    url;
+
+
+}
+
+
+
+
+
+
+
+// Automatically get summary
+
+async function getSummary(){
+
+
+
+    if(currentTitle==""){
+
+        return;
+
+    }
+
+
+
+
+
+    const url =
+
+    "https://en.wikipedia.org/api/rest_v1/page/summary/" +
+
+    encodeURIComponent(currentTitle);
+
+
+
+
+
+    const response =
+    await fetch(url);
+
+
+
+    const data =
+    await response.json();
+
+
+
+
+
+    document.getElementById("summary").innerHTML =
+
+
+    "<h2>" +
+
+    data.title +
+
+    "</h2>" +
+
+
+    "<p>" +
+
+    data.extract +
+
+    "</p>";
+
+
+
+}
+
+
+
+
+
+
+
+// Manual search
+
+async function searchUser(){
+
+
+    const text =
+
+    document.getElementById("searchBox").value.trim();
+
+
+
+    if(text=="") return;
+
+
+
+    const title =
+    await searchWikipedia(text);
+
+
+
+    if(title){
+
+
+        openWikipedia(title);
+
+
+        getSummary();
+
+
+    }
+
+
+}
+
+
+
+
+
+
+
+
+// Start from Google Sheet Column C
+
+async function start(){
+
+
+    try{
+
+
+        const countData =
+        await getSheetData(
+
+            "select count(C) where C is not null"
+
+        );
+
+
+
+        const totalRows =
+        countData.rows[0].c[0].v;
+
+
+
+
+        if(totalRows==0){
+
+            return;
+
+        }
+
+
+
+
+
+        const randomRow =
+
+        Math.floor(
+
+            Math.random()*totalRows
+
+        );
+
+
+
+
+
+        const rowData =
+        await getSheetData(
+
+            "select C where C is not null limit 1 offset "
+
+            + randomRow
+
+        );
+
+
+
+
+
+        if(rowData.rows.length==0){
+
+            return;
+
+        }
+
+
+
+
+
+        const text =
+        rowData.rows[0].c[0].v;
+
+
+
+
+
+        document.getElementById("searchBox").value =
+        text;
+
+
+
+
+
+        const title =
+        await searchWikipedia(text);
+
+
+
+
+
+        if(title){
+
+
+            openWikipedia(title);
+
+
+            // Automatically show summary
+
+            getSummary();
+
+
+        }
+
+
+
+    }
+
+
+    catch(error){
+
+
+        console.log(error);
+
+
+    }
+
+
+}
+
+
+
+
+
+
+
+window.onload=function(){
+
+    start();
+
+};
+
+
+
+</script>
+
+
+</body>
+
+</html>

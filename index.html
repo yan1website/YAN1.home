@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>Explore</title>
+  <style>
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; color: #f8fafc; background: #111827; font-family: system-ui, sans-serif; }
+    header { position: sticky; top: 0; z-index: 2; padding: 12px 18px; color: #e5e7eb; background: rgb(17 24 39 / 92%); border-bottom: 1px solid #374151; backdrop-filter: blur(8px); }
+    header p { max-width: 1100px; margin: 0 auto; font-size: 14px; }
+    #pages { width: 100%; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .page { display: grid; grid-template-rows: 54px minmax(0, 1fr); width: 100%; height: min(92vh, 1100px); min-height: 680px; min-width: 0; overflow: hidden; background: white; border: 0; border-radius: 0; box-shadow: none; }
+    .page + .page { border-top: 3px solid var(--divider-color, #38bdf8); }
+    .page-label { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 54px; padding: 8px 16px; color: #f3f4f6; background: #1f2937; border-bottom: 1px solid #374151; font-size: 16px; font-weight: 650; }
+    .page-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .page-name { color: var(--name-color, #f3f4f6); }
+    .fullscreen-button { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 38px; padding: 7px; color: #f9fafb; background: #374151; border: 1px solid #6b7280; border-radius: 6px; cursor: pointer; }
+    .fullscreen-button:hover, .fullscreen-button:focus-visible { color: white; background: #4b5563; outline: 2px solid #93c5fd; outline-offset: 2px; }
+    .fullscreen-button svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: square; stroke-linejoin: miter; }
+    .page-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+    .page-action { display: grid; place-items: center; width: 38px; height: 38px; padding: 7px; color: #f9fafb; background: #374151; border: 1px solid #6b7280; border-radius: 6px; cursor: pointer; }
+    .page-action:hover, .page-action:focus-visible { color: white; background: #4b5563; outline: 2px solid #93c5fd; outline-offset: 2px; }
+    .page-action svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .page:fullscreen { width: 100vw; height: 100vh; min-height: 0; background: white; }
+    .page:fullscreen iframe { height: 100%; }
+    iframe { display: block; width: 100%; height: 100%; min-height: 0; border: 0; background: white; }
+    #sentinel { height: 50px; display: grid; place-items: center; color: #9ca3af; font-size: 14px; }
+    #message { padding: 32px 18px; text-align: center; color: #fca5a5; }
+  </style>
+</head>
+<body>
+  <header><p id="status">Picking a page to start…</p></header>
+  <main id="pages" aria-live="polite"></main>
+  <div id="sentinel" aria-hidden="true">Loading more pages as you scroll…</div>
+  <div id="message" role="status"></div>
+
+  <script>
+    const pages = document.querySelector('#pages');
+    const status = document.querySelector('#status');
+    const sentinel = document.querySelector('#sentinel');
+    const message = document.querySelector('#message');
+    let remaining = [];
+    let pendingSection = null;
+    const savedMedia = new WeakMap();
+    const savedAnimations = new WeakMap();
+    const mediaWatchers = new WeakMap();
+
+    function shuffle(items) {
+      for (let i = items.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [items[i], items[j]] = [items[j], items[i]];
+      }
+      return items;
+    }
+
+    function colorForFilename(filename) {
+      let hash = 0;
+      for (const character of filename) {
+        hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+      }
+      return `hsl(${hash % 360} 88% 70%)`;
+    }
+
+    function activateFrame(frame) {
+      if (frame.dataset.active === 'true') return;
+      frame.dataset.active = 'true';
+      setFrameVisibility(frame, true);
+      if (frame.dataset.loaded === 'true') {
+        resumeMedia(frame);
+      } else if (!frame.hasAttribute('src')) {
+        frame.dataset.requested = 'true';
+        frame.src = new URL(frame.dataset.src, document.baseURI).href;
+      }
+    }
+
+    function pauseFrame(frame) {
+      if (frame.dataset.active !== 'true') return;
+      frame.dataset.active = 'false';
+      pauseMedia(frame);
+      setFrameVisibility(frame, false);
+    }
+
+    function setFrameVisibility(frame, active) {
+      const value = active ? 'visible' : 'hidden';
+      if (frame.dataset.visibility === value) return;
+      frame.dataset.visibility = value;
+      try {
+        const doc = frame.contentDocument;
+        const view = frame.contentWindow;
+        if (!doc || !view) return;
+        try { Object.defineProperty(doc, 'hidden', { configurable: true, get: () => !active }); } catch (_) {}
+        try { Object.defineProperty(doc, 'visibilityState', { configurable: true, get: () => value }); } catch (_) {}
+        try { doc.dispatchEvent(new view.Event('visibilitychange')); } catch (_) {}
+        const animations = savedAnimations.get(frame) || new Map();
+        if (active) {
+          for (const [animation] of animations) {
+            if (animation.effect) animation.play();
+          }
+          animations.clear();
+        } else {
+          for (const animation of doc.getAnimations({ subtree: true })) {
+            if (animation.playState === 'running') {
+              animations.set(animation, true);
+              animation.pause();
+            }
+          }
+        }
+        savedAnimations.set(frame, animations);
+      } catch (_) {}
+    }
+
+    function getMedia(frame) {
+      try {
+        return frame.contentDocument?.querySelectorAll('audio, video') || [];
+      } catch (_) {
+        return [];
+      }
+    }
+
+    function pauseMedia(frame) {
+      const states = savedMedia.get(frame) || new Map();
+      for (const media of getMedia(frame)) {
+        holdMedia(frame, media, states);
+      }
+      savedMedia.set(frame, states);
+    }
+
+    function holdMedia(frame, media, states = savedMedia.get(frame) || new Map()) {
+      if (!states.has(media)) {
+        states.set(media, {
+          time: media.currentTime,
+          wasPlaying: !media.paused && !media.ended,
+          preload: media.getAttribute('preload'),
+          autoplay: media.hasAttribute('autoplay')
+        });
+      } else if (!media.paused && !media.ended) {
+        const state = states.get(media);
+        state.time = media.currentTime;
+        state.wasPlaying = true;
+      }
+      try { media.pause(); } catch (_) {}
+      media.preload = 'none';
+      media.autoplay = false;
+      savedMedia.set(frame, states);
+    }
+
+    function resumeMedia(frame) {
+      const states = savedMedia.get(frame);
+      if (!states) return;
+      for (const [media, state] of states) {
+        if (!media.isConnected) continue;
+        if (state.preload === null) media.removeAttribute('preload');
+        else media.setAttribute('preload', state.preload);
+        if (state.autoplay) media.setAttribute('autoplay', '');
+        else media.removeAttribute('autoplay');
+        if (state.wasPlaying) {
+          try { media.currentTime = state.time; } catch (_) {}
+          Promise.resolve(media.play()).catch(() => {});
+        }
+      }
+      states.clear();
+    }
+
+    function watchMedia(frame) {
+      if (mediaWatchers.has(frame)) return;
+      try {
+        const doc = frame.contentDocument;
+        if (!doc) return;
+        const onPlay = event => {
+          if (frame.dataset.active === 'true') return;
+          const media = event.target;
+          const states = savedMedia.get(frame) || new Map();
+          if (!media || !['AUDIO', 'VIDEO'].includes(media.tagName)) return;
+          holdMedia(frame, media, states);
+        };
+        doc.addEventListener('play', onPlay, true);
+        const observer = new MutationObserver(records => {
+          if (frame.dataset.active === 'true') return;
+          for (const record of records) {
+            for (const node of record.addedNodes) {
+              if (node.nodeType !== 1) continue;
+              const mediaNodes = [];
+              if (['AUDIO', 'VIDEO'].includes(node.tagName)) mediaNodes.push(node);
+              mediaNodes.push(...node.querySelectorAll('audio, video'));
+              const states = savedMedia.get(frame) || new Map();
+              for (const media of mediaNodes) holdMedia(frame, media, states);
+            }
+          }
+        });
+        observer.observe(doc.documentElement, { childList: true, subtree: true });
+        mediaWatchers.set(frame, { onPlay, observer });
+      } catch (_) {}
+    }
+
+    function appendNext() {
+      if (pendingSection) return;
+      if (!remaining.length) {
+        // Start another shuffled pass once every listed page has appeared.
+        remaining = shuffle([...window.pageFiles]);
+      }
+      const filename = remaining.shift();
+      if (!filename) return;
+      status.textContent = `Showing: ${filename}`;
+
+      const section = document.createElement('section');
+      section.className = 'page';
+      section.style.setProperty('--divider-color', `hsl(${(pages.children.length * 137.508) % 360} 82% 62%)`);
+      const label = document.createElement('div');
+      label.className = 'page-label';
+      const pageName = document.createElement('span');
+      pageName.className = 'page-name';
+      pageName.textContent = filename;
+      pageName.style.setProperty('--name-color', colorForFilename(filename));
+      const actions = document.createElement('div');
+      actions.className = 'page-actions';
+      const reloadButton = document.createElement('button');
+      reloadButton.className = 'page-action';
+      reloadButton.type = 'button';
+      reloadButton.title = `Reload ${filename}`;
+      reloadButton.setAttribute('aria-label', `Reload ${filename}`);
+      reloadButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"/></svg>';
+      reloadButton.addEventListener('click', () => {
+        frame.dataset.loaded = 'false';
+        frame.dataset.requested = 'true';
+        frame.src = new URL(filename, document.baseURI).href;
+      });
+
+      const shareButton = document.createElement('button');
+      shareButton.className = 'page-action';
+      shareButton.type = 'button';
+      shareButton.title = `Share ${filename}`;
+      shareButton.setAttribute('aria-label', `Share ${filename}`);
+      shareButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/></svg>';
+      shareButton.addEventListener('click', async () => {
+        const shareUrl = `https://yan1website.github.io/YAN1.home/${encodeURIComponent(filename)}`;
+        try {
+          if (window.Android && typeof window.Android.shareText === 'function') {
+            window.Android.shareText(shareUrl);
+          } else if (navigator.share) {
+            await navigator.share({ url: shareUrl });
+          } else {
+            await navigator.clipboard.writeText(shareUrl);
+            status.textContent = `Link copied: ${shareUrl}`;
+          }
+        } catch (error) {
+          if (error.name !== 'AbortError') status.textContent = 'Could not share this link.';
+        }
+      });
+
+      const fullscreenButton = document.createElement('button');
+      fullscreenButton.className = 'fullscreen-button';
+      fullscreenButton.type = 'button';
+      fullscreenButton.title = `View ${filename} full screen`;
+      fullscreenButton.setAttribute('aria-label', `View ${filename} full screen`);
+      fullscreenButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>';
+      fullscreenButton.addEventListener('click', async () => {
+        try {
+          if (document.fullscreenElement === section) await document.exitFullscreen();
+          else await section.requestFullscreen();
+        } catch (_) {
+          status.textContent = 'Full screen is unavailable in this browser.';
+        }
+      });
+      actions.append(reloadButton, shareButton, fullscreenButton);
+      label.append(pageName, actions);
+      const frame = document.createElement('iframe');
+      frame.title = filename;
+      frame.loading = 'lazy';
+      frame.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
+      frame.dataset.src = filename;
+      frame.addEventListener('load', () => {
+        if (frame.dataset.requested !== 'true') return;
+        try {
+          if (frame.contentWindow.location.href === 'about:blank') return;
+        } catch (_) {}
+        frame.dataset.loaded = 'true';
+        watchMedia(frame);
+        frame.dataset.visibility = '';
+        setFrameVisibility(frame, frame.dataset.active === 'true');
+        if (frame.dataset.active !== 'true') {
+          pauseMedia(frame);
+          return;
+        }
+        updateVisiblePages();
+      });
+      frame.addEventListener('error', () => {
+        pageName.textContent = `${filename} could not be loaded`;
+        if (pendingSection === section) pendingSection = null;
+      });
+      section.append(label, frame);
+      pages.append(section);
+      const bounds = section.getBoundingClientRect();
+      if (bounds.bottom > 0 && bounds.top < window.innerHeight) activateFrame(frame);
+      else pendingSection = section;
+    }
+
+    function updateVisiblePages() {
+      for (const section of pages.querySelectorAll('.page')) {
+        const frame = section.querySelector('iframe');
+        const bounds = section.getBoundingClientRect();
+        const isVisible = document.visibilityState === 'visible' && document.hasFocus() && bounds.bottom > 0 && bounds.top < window.innerHeight;
+        if (isVisible) {
+          if (pendingSection === section) pendingSection = null;
+          activateFrame(frame);
+        } else pauseFrame(frame);
+      }
+      if (!pendingSection && sentinel.getBoundingClientRect().top < window.innerHeight + 900) appendNext();
+    }
+
+    window.addEventListener('scroll', updateVisiblePages, { passive: true });
+    window.addEventListener('resize', updateVisiblePages);
+    window.addEventListener('blur', updateVisiblePages);
+    window.addEventListener('focus', updateVisiblePages);
+    document.addEventListener('visibilitychange', updateVisiblePages);
+    document.addEventListener('fullscreenchange', updateVisiblePages);
+
+    async function start() {
+      try {
+        const response = await fetch('list.json', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Could not read list.json (${response.status})`);
+        const files = await response.json();
+        if (!Array.isArray(files) || !files.length || files.some(name => typeof name !== 'string' || !name.endsWith('.html') || name.includes('/') || name.includes('\\'))) {
+          throw new Error('list.json must contain an array of HTML filenames in this folder.');
+        }
+        window.pageFiles = [...new Set(files)];
+        remaining = shuffle([...window.pageFiles]);
+        appendNext();
+        updateVisiblePages();
+      } catch (error) {
+        message.textContent = `${error.message} Open this site through a local web server so the browser can fetch the JSON file.`;
+        status.textContent = 'Unable to load pages';
+      }
+    }
+
+    function isYAN1App() {
+      return window.AndroidPython && typeof window.AndroidPython.executePython === 'function';
+    }
+
+    function openInYAN1App() {
+      if (isYAN1App()) return;
+      try {
+        if (sessionStorage.getItem('yan1_launched') === 'true') return;
+        sessionStorage.setItem('yan1_launched', 'true');
+      } catch (_) {}
+      const currentURL = window.location.href;
+      const cleanPath = currentURL.replace(/^https?:\/\//, '');
+      const intentURL = `intent://${cleanPath}#Intent;scheme=https;package=com.example1.yan1appgen1;S.browser_fallback_url=${encodeURIComponent(currentURL)};end;`;
+      window.location.href = intentURL;
+    }
+
+    setTimeout(openInYAN1App, 1200);
+    start();
+  </script>
+</body>
+</html>

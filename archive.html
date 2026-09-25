@@ -1,0 +1,248 @@
+
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Random Archive Search Viewer</title>
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+
+<style>
+
+body{
+    font-family:Arial;
+    margin:0;
+    background:#f5f5f5;
+}
+
+
+iframe{
+
+    width:100%;
+    height:100vh;
+    border:0;
+    display:block;
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div style="background:white;padding:10px;position:fixed;top:0;width:100%;z-index:10;box-sizing:border-box;display:flex;gap:10px;">
+
+<input 
+id="searchBox"
+type="text"
+placeholder="Search Internet Archive..."
+style="flex:1;padding:10px;font-size:16px;">
+
+<button 
+onclick="userSearch()"
+style="padding:10px 20px;font-size:16px;">
+Search
+</button>
+
+</div>
+
+
+<iframe id="viewer" style="margin-top:60px;"></iframe>
+
+
+
+<script>
+
+
+const SHEET_ID =
+"1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M";
+
+
+
+
+
+// Read Google Sheet
+
+async function getSheetData(query){
+
+
+    const url =
+    "https://docs.google.com/spreadsheets/d/" +
+    SHEET_ID +
+    "/gviz/tq?tq=" +
+    encodeURIComponent(query);
+
+
+
+    const response = await fetch(url);
+
+
+    const text = await response.text();
+
+
+
+    const json = JSON.parse(
+
+        text.substring(
+            text.indexOf("{"),
+            text.lastIndexOf("}") + 1
+        )
+
+    );
+
+
+    return json.table;
+
+}
+
+
+
+
+
+async function start(){
+
+
+    try{
+
+
+        // Get number of filled rows in column A
+
+        const countData =
+        await getSheetData(
+            "select count(A) where A is not null"
+        );
+
+
+
+        const totalRows =
+        countData.rows[0].c[0].v;
+
+
+
+        if(totalRows == 0){
+
+            return;
+
+        }
+
+
+
+
+
+        // Pick random row
+
+        const randomRow =
+        Math.floor(Math.random() * totalRows);
+
+
+
+
+
+
+        // Get only that row's column A value
+
+        const rowData =
+        await getSheetData(
+
+            "select A where A is not null limit 1 offset "
+            + randomRow
+
+        );
+
+
+
+
+        if(rowData.rows.length == 0){
+
+            return;
+
+        }
+
+
+
+
+        const searchText =
+        rowData.rows[0].c[0].v;
+
+
+
+
+
+
+        // Create Internet Archive search URL
+
+        const archiveSearchURL =
+
+        "https://archive.org/search?query=" +
+
+        encodeURIComponent(searchText) +
+
+        "&tab=all";
+
+
+
+
+
+
+        // Open search results page
+
+        document.getElementById("viewer").src =
+        archiveSearchURL;
+
+
+
+    }
+
+
+    catch(error){
+
+        console.log(error);
+
+    }
+
+
+}
+
+
+function userSearch(){
+
+    const text =
+    document.getElementById("searchBox").value.trim();
+
+
+    if(text==""){
+        return;
+    }
+
+
+    const archiveSearchURL =
+
+    "https://archive.org/search?query=" +
+    encodeURIComponent(text) +
+    "&tab=all";
+
+
+    document.getElementById("viewer").src =
+    archiveSearchURL;
+
+}
+
+
+window.onload = function(){
+
+    start();
+
+};
+
+
+</script>
+
+
+</body>
+
+</html>
