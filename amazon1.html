@@ -117,7 +117,7 @@
 			image.hidden = false;
 			image.addEventListener('error', () => {
 				image.hidden = true;
-				status.textContent = 'The product image could not be loaded.';
+				status.textContent = 'The image URL in column A could not be loaded. Check that it points directly to an image file and is publicly accessible.';
 				status.hidden = false;
 			}, { once: true });
 		} else {
