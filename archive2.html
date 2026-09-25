@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="theme-color" content="#111827">
+	<title>Internet Archive Item</title>
+	<style>
+		:root { color-scheme: dark; font-family: Arial, sans-serif; }
+		* { box-sizing: border-box; }
+		body { margin: 0; min-height: 100vh; background: #111827; color: #f9fafb; }
+		header { padding: 1rem 1.25rem; background: #1f2937; }
+		h1 { margin: 0; font-size: 1.1rem; }
+		#status { margin: .5rem 0 0; color: #cbd5e1; font-size: .9rem; overflow-wrap: anywhere; }
+		iframe { display: block; width: 100%; height: calc(100vh - 130px); min-height: 24rem; border: 0; background: #000; }
+		footer { display: flex; justify-content: center; gap: .6rem; padding: .75rem 1rem; background: #1f2937; }
+		button { border: 0; border-radius: .35rem; padding: .7rem 1rem; background: #38bdf8; color: #082f49; cursor: pointer; font-weight: 700; }
+		button:disabled { cursor: not-allowed; opacity: .6; }
+		#shareButton { min-width: 2.75rem; padding: .65rem; font-size: 1.2rem; }
+		[hidden] { display: none !important; }
+	</style>
+</head>
+<body>
+	<header>
+		<h1>Internet Archive Item</h1>
+		<p id="status" role="status">Loading item…</p>
+	</header>
+	<iframe id="archiveViewer" title="Internet Archive item" allowfullscreen hidden></iframe>
+	<footer>
+		<button id="reviewButton" type="button" disabled>Review this item</button>
+		<button id="shareButton" type="button" aria-label="Share this item" title="Share this item" disabled>↗</button>
+	</footer>
+	<script>
+		const itemId = (new URLSearchParams(window.location.search).get('item') || '').trim();
+		const status = document.querySelector('#status');
+		const viewer = document.querySelector('#archiveViewer');
+		const reviewButton = document.querySelector('#reviewButton');
+		const shareButton = document.querySelector('#shareButton');
+
+		function validItemId(value) {
+			return Boolean(value) && !/[\s/\\?#]/.test(value);
+		}
+
+		if (validItemId(itemId)) {
+			viewer.src = `https://archive.org/embed/${encodeURIComponent(itemId)}`;
+			viewer.hidden = false;
+			status.textContent = `Showing ${itemId}`;
+			reviewButton.disabled = false;
+			shareButton.disabled = false;
+		} else {
+			status.textContent = 'A valid Internet Archive item ID is missing from the item parameter.';
+		}
+
+		reviewButton.addEventListener('click', () => {
+			if (!validItemId(itemId)) return;
+			window.open(`https://archive.org/details/${encodeURIComponent(itemId)}/reviews`, '_blank', 'noopener,noreferrer');
+		});
+
+		shareButton.addEventListener('click', async () => {
+			if (!validItemId(itemId)) return;
+			const shareUrl = new URL('https://yan1website.github.io/YAN1.home/archive2.html');
+			shareUrl.searchParams.set('item', itemId);
+			const url = shareUrl.toString();
+			try {
+				if (navigator.share) {
+					await navigator.share({ title: 'Internet Archive item', url });
+				} else if (navigator.clipboard?.writeText) {
+					await navigator.clipboard.writeText(url);
+					status.textContent = 'Share link copied.';
+				} else {
+					window.prompt('Copy this share link:', url);
+				}
+			} catch (error) {
+				if (error.name !== 'AbortError') window.prompt('Copy this share link:', url);
+			}
+		});
+	</script>
+</body>
+</html>
