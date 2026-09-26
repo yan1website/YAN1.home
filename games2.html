@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Opening Game</title>
+	<style>
+		body { margin: 0; padding: 2rem; font: 16px Arial, sans-serif; color: #17211b; background: #f5f0e7; text-align: center; }
+		a { color: #b93d28; }
+	</style>
+</head>
+<body>
+	<p id="status" role="status" aria-live="polite">Opening game…</p>
+	<script>
+		const GAME_BASE_URL = 'https://www.addictinggames.com/embed/html5-games/';
+		const gameId = new URLSearchParams(window.location.search).get('txt')?.trim() || '';
+		const status = document.querySelector('#status');
+
+		if (!gameId || /[\s/]/.test(gameId)) {
+			status.textContent = 'This link does not contain a valid game ID.';
+		} else {
+			const gameUrl = `${GAME_BASE_URL}${encodeURIComponent(gameId)}`;
+			const gameTab = window.open(gameUrl, '_blank', 'noopener,noreferrer');
+			if (gameTab) {
+				status.textContent = 'Your game was opened in a new tab.';
+			} else {
+				status.innerHTML = 'Your browser blocked the new tab. <a target="_blank" rel="noopener noreferrer"></a>';
+				const link = status.querySelector('a');
+				link.href = gameUrl;
+				link.textContent = 'Open the game';
+			}
+		}
+	</script>
+</body>
+</html>
