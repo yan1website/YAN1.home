@@ -50,6 +50,10 @@
       font-weight: bold;
     }
 
+    .weather-actions { width:100%; max-width:900px; display:flex; justify-content:center; gap:10px; margin:-10px 0 18px; }
+    .weather-actions button { padding:8px 12px; border:0; border-radius:8px; color:white; background:#10b981; cursor:pointer; font-size:16px; }
+    .weather-actions button.live-mode { background:#dc2626; }
+
     #weatherDetails {
       margin-bottom: 25px;
       padding: 20px;
@@ -159,6 +163,10 @@
 
   <!-- WEATHER DETAILS NOW MOVED ABOVE MAP -->
   <div id="weatherDetails">Detecting your location…</div>
+  <div class="weather-actions" id="weatherActions" hidden>
+    <button id="shareLocationButton" type="button" aria-label="Share this location">➤</button>
+    <button id="liveWeatherButton" class="live-mode" type="button" aria-label="Show live location weather" title="Show live location weather" hidden>🔴</button>
+  </div>
 
   <iframe id="windyFrame"
     src="https://embed.windy.com/embed2.html?lat=20&lon=78&zoom=4"
@@ -174,9 +182,24 @@
     // ======================================================
     // AUTO‑LOCATION & WEATHER LOGIC (unchanged from original)
     // ======================================================
-    window.onload = function () {
-      getUserLocation();
-    };
+    const locationInput = document.getElementById("locationInput");
+    const weatherActions = document.getElementById("weatherActions");
+    const shareLocationButton = document.getElementById("shareLocationButton");
+    const liveWeatherButton = document.getElementById("liveWeatherButton");
+    let currentLocationName = "";
+    let sharedLocationMode = false;
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const sharedLocation = new URLSearchParams(window.location.search).get("txt")?.trim() || "";
+      if (sharedLocation) {
+        sharedLocationMode = true;
+        locationInput.value = sharedLocation;
+        liveWeatherButton.hidden = false;
+        searchLocation();
+      } else {
+        getUserLocation();
+      }
+    });
 
     // AUTO LOCATION ON FIRST LOAD
     function getUserLocation() {
@@ -199,10 +222,13 @@
             const revRes = await fetch(revURL);
             const revData = await revRes.json();
             const locationName = revData.display_name || "Your Current Location";
-
+            currentLocationName = locationName;
+            weatherActions.hidden = false;
             fetchWeatherAndMap(lat, lon, locationName);
 
           } catch {
+            currentLocationName = "Your Current Location";
+            weatherActions.hidden = false;
             fetchWeatherAndMap(lat, lon, "Your Current Location");
           }
         },
@@ -242,6 +268,8 @@
         const lon = geoData[0].lon;
         const name = geoData[0].display_name;
 
+        currentLocationName = input;
+        weatherActions.hidden = false;
         fetchWeatherAndMap(lat, lon, name);
 
       } catch (err) {
@@ -250,10 +278,39 @@
       }
     }
 
+    async function shareCurrentLocation() {
+      const locationName = currentLocationName || locationInput.value.trim();
+      if (!locationName) return;
+      const url = new URL("https://yan1website.github.io/YAN1.home/weather&climate.html");
+      url.searchParams.set("txt", locationName);
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: `Weather for ${locationName}`, url: url.href });
+        } else if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(url.href);
+          alert("Permanent weather link copied. You can paste it into any app.");
+        } else {
+          window.prompt("Copy this permanent weather link:", url.href);
+        }
+      } catch (error) {
+        if (error.name !== "AbortError") window.prompt("Copy this permanent weather link:", url.href);
+      }
+    }
+
+    shareLocationButton.addEventListener("click", shareCurrentLocation);
+    liveWeatherButton.addEventListener("click", () => {
+      sharedLocationMode = false;
+      locationInput.value = "";
+      liveWeatherButton.hidden = true;
+      weatherActions.hidden = true;
+      getUserLocation();
+    });
+
     // UPDATE MAP + WEATHER
     async function fetchWeatherAndMap(lat, lon, locationName) {
       const windy = document.getElementById("windyFrame");
       const details = document.getElementById("weatherDetails");
+      if (!currentLocationName) currentLocationName = locationName;
 
       // Update Windy Map with marker
       windy.src =
