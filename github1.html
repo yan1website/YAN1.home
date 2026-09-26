@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Random GitHub Link</title>
+	<style>
+		:root { font-family: Arial, sans-serif; color: #1f2937; background: #f4f7fb; }
+		body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 20px; box-sizing: border-box; }
+		main { width: min(100%, 680px); padding: 28px; box-sizing: border-box; border: 1px solid #dfe7f1; border-radius: 16px; background: white; box-shadow: 0 10px 25px rgba(15,23,42,.06); }
+		h1 { margin-top: 0; font-size: 1.4rem; }
+		#status { color: #5b6475; line-height: 1.5; overflow-wrap: anywhere; }
+		#value { margin-top: 18px; padding: 14px; border-radius: 10px; background: #f8fafc; overflow-wrap: anywhere; }
+		.error { color: #a32918 !important; }
+	</style>
+</head>
+<body>
+	<main>
+		<h1>Random value from column L</h1>
+		<p id="status" role="status" aria-live="polite">Checking the sheet…</p>
+		<div id="value"></div>
+	</main>
+	<script>
+		const SHEET_ID = '1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M';
+		const SHEET_NAME = 'Sheet1';
+		const status = document.querySelector('#status');
+		const valueElement = document.querySelector('#value');
+
+		function sheetQueryUrl(query) {
+			const params = new URLSearchParams({ sheet: SHEET_NAME, tqx: 'out:json', tq: query });
+			return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`;
+		}
+
+		async function querySheet(query) {
+			const response = await fetch(sheetQueryUrl(query), { cache: 'no-store' });
+			if (!response.ok) throw new Error(`Google Sheets request failed (${response.status}).`);
+			const text = await response.text();
+			const start = text.indexOf('{');
+			const end = text.lastIndexOf('}');
+			if (start < 0 || end < start) throw new Error('The sheet returned an invalid response.');
+			const result = JSON.parse(text.slice(start, end + 1));
+			if (result.status !== 'ok') throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed.');
+			return result.table;
+		}
+
+		async function showRandomColumnLValue() {
+			try {
+				// Request only the count, then only the selected cell.
+				const countTable = await querySheet('select count(L) where L is not null');
+				const rowCount = Number(countTable.rows?.[0]?.c?.[0]?.v || 0);
+				if (!Number.isInteger(rowCount) || rowCount < 1) {
+					throw new Error('No values were found in column L.');
+				}
+
+				const randomOffset = Math.floor(Math.random() * rowCount);
+				const valueTable = await querySheet(`select L where L is not null limit 1 offset ${randomOffset}`);
+				const cell = valueTable.rows?.[0]?.c?.[0];
+				if (!cell) throw new Error('Could not read the randomly selected value from column L.');
+
+				const value = String(cell.f ?? cell.v ?? '');
+				valueElement.textContent = value;
+				status.textContent = `Selected a random value from ${rowCount} nonempty rows in column L.`;
+			} catch (error) {
+				status.textContent = error.message || 'Unable to read the sheet right now.';
+				status.classList.add('error');
+			}
+		}
+
+		showRandomColumnLValue();
+	</script>
+</body>
+</html>
