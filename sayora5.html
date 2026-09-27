@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10131d">
+  <title>Sayora — Shared Image</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    body { min-height: 100vh; margin: 0; padding: 36px 18px 56px; color: #f7f5ff; background: radial-gradient(ellipse at 50% -15%, #46306e 0, #191827 42%, #10131d 78%); }
+    main { width: min(100%, 760px); margin: 0 auto; }
+    .brand { color: #c6a8ff; font-size: 12px; font-weight: 750; letter-spacing: .2em; text-transform: uppercase; }
+    h1 { margin: 10px 0 8px; font-size: clamp(30px, 6vw, 44px); letter-spacing: -.045em; }
+    .intro { margin: 0 0 24px; color: #aaa7ba; line-height: 1.6; }
+    .card { padding: clamp(18px, 4vw, 30px); border: 1px solid #343044; border-radius: 20px; background: rgb(25 24 39 / 92%); box-shadow: 0 24px 70px #08081070; }
+    .status { margin: 0; color: #d7d1e3; font-size: 14px; line-height: 1.5; }
+    .status.error { color: #ffc4c4; }
+    .row { display: none; margin-top: 20px; }
+    .row h2 { margin: 0 0 14px; font-size: 18px; }
+    .cell { padding: 14px 0; border-top: 1px solid #39364b; overflow-wrap: anywhere; }
+    .cell-label { display: block; margin-bottom: 5px; color: #bba2e8; font-size: 12px; font-weight: 700; }
+    .cell-value { margin: 0; color: #f1edf8; line-height: 1.6; white-space: pre-wrap; }
+    .cell-link { color: #c6a8ff; overflow-wrap: anywhere; }
+    .cell-image { display: block; max-width: 100%; max-height: 480px; margin-top: 10px; border-radius: 10px; object-fit: contain; background: #12121c; }
+    button { min-height: 46px; margin: 16px 8px 0 0; padding: 0 16px; border: 0; border-radius: 10px; color: #20172d; background: #c6a8ff; font: inherit; font-weight: 750; cursor: pointer; }
+    button:hover { background: #d5c0ff; }
+    .share-button { border: 1px solid #71608e; color: #f7f5ff; background: #29243a; font-size: 19px; }
+    .share-button:hover { background: #38304c; }
+    #actionPanel { display: none; width: min(100%, 900px); margin: 28px auto 0; overflow: hidden; border: 1px solid #343044; border-radius: 16px; background: #191827; }
+    #actionPanel iframe { display: block; width: 100%; height: 900px; border: 0; }
+    @media (max-width: 480px) { body { padding: 24px 12px 40px; } .card { border-radius: 15px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand">Sayora</div>
+    <h1>Shared image</h1>
+    <p class="intro">This shared image was matched to its entry in the public Sayora sheet.</p>
+    <section class="card" aria-label="Matched spreadsheet row">
+      <p class="status" id="status" role="status" aria-live="polite">Finding the matching entry…</p>
+      <section class="row" id="rowResult" aria-live="polite">
+        <h2 id="rowHeading">Matched entry</h2>
+        <div id="rowCells"></div>
+        <button id="commentButton" type="button">Comment</button>
+        <button id="viewCommentsButton" type="button">View comments</button>
+        <button id="shareButton" class="share-button" type="button" aria-label="Share permanent image link" title="Share permanent image link">ᯓ➤</button>
+      </section>
+    </section>
+  </main>
+  <section id="actionPanel" aria-label="Comments or comment form"><iframe title="Comments or comment form" loading="lazy"></iframe></section>
+  <script>
+    const SPREADSHEET_ID = '1GafYJhhoZRuQG7SRJKxfJAa55hoJ6gT2QF-9_dK2Gu0';
+    const SHEET_NAME = 'Form Responses 1';
+    const status = document.querySelector('#status');
+    const rowResult = document.querySelector('#rowResult');
+    const rowCells = document.querySelector('#rowCells');
+    const actionPanel = document.querySelector('#actionPanel');
+    const imageUrl = getImageUrl();
+
+    function getImageUrl() {
+      const value = new URLSearchParams(window.location.search).get('txt');
+      if (!value) return '';
+      try {
+        const url = new URL(value.startsWith('http://') || value.startsWith('https://') ? value : `https://${value}`);
+        if (!['http:', 'https:'].includes(url.protocol)) return '';
+        return url.href;
+      } catch {
+        return '';
+      }
+    }
+
+    function sheetQueryUrl(query) {
+      const params = new URLSearchParams({ sheet: SHEET_NAME, tqx: 'out:json', tq: query });
+      return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?${params}`;
+    }
+
+    async function querySheet(query) {
+      const response = await fetch(sheetQueryUrl(query), { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Google Sheets request failed (${response.status}).`);
+      const text = await response.text();
+      const start = text.indexOf('{');
+      const end = text.lastIndexOf('}');
+      if (start < 0 || end < start) throw new Error('The sheet returned an invalid response.');
+      const result = JSON.parse(text.slice(start, end + 1));
+      if (result.status !== 'ok') throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed.');
+      return result.table;
+    }
+
+    function cellText(cell) {
+      return cell ? String(cell.f ?? cell.v ?? '').trim() : '';
+    }
+
+    function appendValue(container, value, label, isImageColumn) {
+      const match = value.match(/https?:\/\/[^\s<>"']+/i);
+      if (!match) {
+        container.textContent = value;
+        return;
+      }
+      const url = match[0].replace(/[),.;]+$/, '');
+      container.append(document.createTextNode(value.slice(0, match.index)));
+      const link = document.createElement('a');
+      link.className = 'cell-link';
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = url;
+      container.appendChild(link);
+      if (isImageColumn || /(image|photo|picture|pic|img)/i.test(label) || /\.(?:png|jpe?g|gif|webp|avif|svg)(?:[?#].*)?$/i.test(url)) {
+        const image = document.createElement('img');
+        image.className = 'cell-image';
+        image.src = url;
+        image.alt = 'Image from the matched spreadsheet entry';
+        image.loading = 'lazy';
+        image.onerror = () => image.remove();
+        container.appendChild(image);
+      }
+      container.append(document.createTextNode(value.slice(match.index + url.length)));
+    }
+
+    function showPanel(page) {
+      const url = new URL(page, window.location.href);
+      url.searchParams.set('To', imageUrl);
+      actionPanel.querySelector('iframe').src = url.href;
+      actionPanel.style.display = 'block';
+      actionPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    async function shareImage() {
+      const link = new URL('https://yan1website.github.io/YAN1.home/sayora2.html');
+      link.searchParams.set('txt', imageUrl.replace(/^https:\/\//i, ''));
+      try {
+        if (navigator.share) await navigator.share({ title: 'Sayora image', url: link.href });
+        else if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(link.href);
+          alert('Permanent link copied. You can share it in any app.');
+        } else window.prompt('Copy this permanent link to share:', link.href);
+      } catch (error) {
+        if (error.name !== 'AbortError') window.prompt('Copy this permanent link to share:', link.href);
+      }
+    }
+
+    function renderRow(table) {
+      const row = table.rows?.[0];
+      if (!row) {
+        status.textContent = 'No sheet entry matches this image URL in column C.';
+        return;
+      }
+      const columns = table.cols || [];
+      (row.c || []).forEach((cell, index) => {
+        const value = cellText(cell);
+        if (!value) return;
+        const label = String(columns[index]?.label || columns[index]?.id || `Column ${index + 1}`).trim();
+        const field = document.createElement('div');
+        field.className = 'cell';
+        const name = document.createElement('span');
+        name.className = 'cell-label';
+        name.textContent = label;
+        const content = document.createElement('p');
+        content.className = 'cell-value';
+        appendValue(content, value, label, index === 2);
+        field.append(name, content);
+        rowCells.appendChild(field);
+      });
+      rowResult.style.display = 'block';
+      status.textContent = 'Matching sheet entry found.';
+    }
+
+    async function loadMatchedRow() {
+      if (!imageUrl) {
+        status.textContent = 'No valid image URL was provided. Open this page from a shared image link.';
+        status.classList.add('error');
+        return;
+      }
+      try {
+        const escapedUrl = imageUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const table = await querySheet(`select * where C = '${escapedUrl}' limit 1`);
+        renderRow(table);
+      } catch (error) {
+        status.textContent = error.message || 'Unable to find the matching sheet entry.';
+        status.classList.add('error');
+      }
+    }
+
+    document.querySelector('#commentButton').addEventListener('click', () => showPanel('sayora3.html'));
+    document.querySelector('#viewCommentsButton').addEventListener('click', () => showPanel('sayora4.html'));
+    document.querySelector('#shareButton').addEventListener('click', shareImage);
+    loadMatchedRow();
+  </script>
+</body>
+</html>
