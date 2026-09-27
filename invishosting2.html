@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111111">
+  <title>InvisHosting Video</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; padding: 24px 16px 40px; background: #111; color: #fff; font-family: Arial, sans-serif; }
+    main { width: min(100%, 1000px); margin: 0 auto; }
+    h1 { margin: 0 0 20px; text-align: center; font-size: clamp(24px, 5vw, 34px); }
+    .status { margin: 0 0 18px; padding: 12px; border-radius: 8px; background: #222; color: #ccc; text-align: center; }
+    .status.error { color: #ff7777; }
+    .video-container { overflow: hidden; border-radius: 10px; background: #000; }
+    video { display: block; width: 100%; max-height: 80vh; height: auto; background: #000; }
+    .info { margin-top: 15px; color: #aaa; font-size: 14px; text-align: center; overflow-wrap: anywhere; }
+    .buttons { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+    button, .open-button { display: inline-flex; justify-content: center; align-items: center; min-height: 46px; padding: 10px 18px; border: 0; border-radius: 7px; background: #fff; color: #111; font: inherit; font-size: 15px; text-decoration: none; cursor: pointer; }
+    button:hover, .open-button:hover { background: #ddd; }
+    .share-button { min-width: 48px; padding: 8px 14px; font-size: 22px; }
+    button:disabled { background: #555; color: #aaa; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>InvisHosting Video</h1>
+    <p id="status" class="status" role="status" aria-live="polite">Loading video…</p>
+    <div class="video-container">
+      <video id="videoPlayer" controls playsinline preload="metadata">Your browser does not support HTML5 video.</video>
+    </div>
+    <p id="info" class="info"></p>
+    <div class="buttons">
+      <a id="openButton" class="open-button" href="#" target="_blank" rel="noopener noreferrer" hidden>Open Video</a>
+      <button id="shareButton" class="share-button" type="button" aria-label="Share permanent video link" title="Share permanent video link" disabled>ᯓ➤</button>
+    </div>
+  </main>
+  <script>
+    const statusBox = document.querySelector('#status');
+    const infoBox = document.querySelector('#info');
+    const videoPlayer = document.querySelector('#videoPlayer');
+    const openButton = document.querySelector('#openButton');
+    const shareButton = document.querySelector('#shareButton');
+    const sheetValue = new URLSearchParams(window.location.search).get('txt')?.trim() || '';
+
+    function getVideoUrl(value) {
+      if (/^https?:\/\//i.test(value)) return value;
+      return `https://invishosting.com/view.php?id=${encodeURIComponent(value)}`;
+    }
+
+    function showError(message) {
+      statusBox.textContent = message;
+      statusBox.classList.add('error');
+    }
+
+    async function shareVideo() {
+      const link = new URL('https://yan1website.github.io/YAN1.home/invishosting2.html');
+      link.searchParams.set('txt', sheetValue);
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: 'InvisHosting video', url: link.href });
+        } else if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(link.href);
+          alert('Permanent link copied. You can share it in any app.');
+        } else {
+          window.prompt('Copy this permanent link to share:', link.href);
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') window.prompt('Copy this permanent link to share:', link.href);
+      }
+    }
+
+    function loadVideo() {
+      if (!sheetValue) {
+        showError('This link is missing its txt value.');
+        return;
+      }
+      const videoUrl = getVideoUrl(sheetValue);
+      videoPlayer.src = videoUrl;
+      videoPlayer.load();
+      openButton.href = videoUrl;
+      openButton.hidden = false;
+      shareButton.disabled = false;
+      infoBox.textContent = 'Shared video';
+      statusBox.textContent = 'Video selected. Press play to start.';
+    }
+
+    videoPlayer.addEventListener('loadedmetadata', () => {
+      statusBox.textContent = 'Video loaded successfully.';
+    });
+    videoPlayer.addEventListener('error', () => {
+      showError('The selected video could not be loaded.');
+    });
+    shareButton.addEventListener('click', shareVideo);
+    loadVideo();
+  </script>
+</body>
+</html>
