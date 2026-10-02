@@ -189,17 +189,18 @@
 		async function shareGame() {
 			const url = new URL('https://yan1website.github.io/YAN1.home/games2.html');
 			url.searchParams.set('txt', gameNumber);
+			const text = 'YAN1 APP GEN 1\nYAN1 APP GEN 1\nFound something interesting — have a look! ✨\n🎮 \nTHANKS 🙏';
 			try {
 				if (navigator.share) {
-					await navigator.share({ title: 'Game', url: url.href });
+					await navigator.share({ title: 'Game', text, url: url.href });
 				} else if (navigator.clipboard && window.isSecureContext) {
-					await navigator.clipboard.writeText(url.href);
-					alert('Permanent link copied. You can paste it into any app.');
+					await navigator.clipboard.writeText(`${text}\n${url.href}`);
+					alert('Share message and link copied. You can paste them into any app.');
 				} else {
-					window.prompt('Copy this permanent link:', url.href);
+					window.prompt('Copy this share message and link:', `${text}\n${url.href}`);
 				}
 			} catch (error) {
-				if (error.name !== 'AbortError') window.prompt('Copy this permanent link:', url.href);
+				if (error.name !== 'AbortError') window.prompt('Copy this share message and link:', `${text}\n${url.href}`);
 			}
 		}
 		shareButton.addEventListener('click', shareGame);
