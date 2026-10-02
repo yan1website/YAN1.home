@@ -10,7 +10,7 @@
 		body { margin:0; padding:20px; color:var(--text); background:linear-gradient(180deg,#eef4ff 0%,var(--bg) 100%); font:16px Arial,Helvetica,sans-serif; }
 		main { max-width:980px; margin:24px auto; }
 		#status { text-align:center; padding:18px; color:var(--muted); font-weight:700; }
-		.repo { margin:20px 0; padding:22px 24px; border:1px solid var(--line); border-radius:16px; background:var(--panel); box-shadow:0 10px 25px rgba(15,23,42,.06); }
+		.repo { margin:20px 0; padding:22px 24px; border:1px solid var(--line); border-left:0; border-right:0; border-radius:0; background:var(--panel); box-shadow:0 10px 25px rgba(15,23,42,.06); }
 		.repo h1 { margin:0 0 10px; font-size:1.5rem; overflow-wrap:anywhere; }
 		.repo .meta { display:flex; flex-wrap:wrap; gap:10px; margin:12px 0; }
 		.repo .tag { padding:6px 10px; border:1px solid var(--line); border-radius:999px; background:var(--panel-2); color:var(--muted); font-size:.82rem; }
@@ -39,17 +39,18 @@
 		async function shareRepository() {
 			const url = new URL('https://yan1website.github.io/YAN1.home/github2.html');
 			url.searchParams.set('txt', repoPath);
+			const text = `YAN1 APP GEN 1\nYAN1 APP GEN 1\nFound something interesting — have a look! ✨\n📂 ${repoPath}\nTHANKS 🙏`;
 			try {
 				if (navigator.share) {
-					await navigator.share({ title: repoPath, url: url.href });
+					await navigator.share({ title: repoPath, text, url: url.href });
 				} else if (navigator.clipboard && window.isSecureContext) {
-					await navigator.clipboard.writeText(url.href);
-					alert('Permanent link copied. You can paste it into any app.');
+					await navigator.clipboard.writeText(`${text}\n${url.href}`);
+					alert('Share message and link copied. You can paste them into any app.');
 				} else {
-					window.prompt('Copy this permanent link:', url.href);
+					window.prompt('Copy this share message and link:', `${text}\n${url.href}`);
 				}
 			} catch (error) {
-				if (error.name !== 'AbortError') window.prompt('Copy this permanent link:', url.href);
+				if (error.name !== 'AbortError') window.prompt('Copy this share message and link:', `${text}\n${url.href}`);
 			}
 		}
 
