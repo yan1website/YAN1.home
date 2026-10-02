@@ -28,6 +28,8 @@
       background: #000;
       border-radius: 12px;
     }
+    .video-actions { display: flex; justify-content: center; margin-top: 12px; }
+    .share-button { padding: 7px 10px; border: 0; border-radius: 7px; color: #fff; background: #2563eb; cursor: pointer; font-size: 14px; line-height: 1; }
     .thumbnail-button,
     .thumbnail-button img,
     iframe { width: 100%; height: 100%; border: 0; }
@@ -60,6 +62,7 @@
     }
     iframe { display: none; }
   </style>
+  <script src="app-launch.js" defer></script>
 </head>
 <body>
   <main>
@@ -77,6 +80,9 @@
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowfullscreen>
       </iframe>
+    </div>
+    <div id="videoActions" class="video-actions" hidden>
+      <button id="shareButton" class="share-button" type="button" aria-label="Share this video">➤</button>
     </div>
   </main>
 
@@ -109,6 +115,8 @@
       return result.table;
     }
 
+    let selectedSheetValue = '';
+
     async function getRandomVideoId() {
       const countTable = await querySheet('select count(I) where I is not null');
       const rowCount = Number(countTable.rows?.[0]?.c?.[0]?.v || 0);
@@ -121,11 +129,30 @@
         `select I where I is not null limit 1 offset ${randomOffset}`
       );
       const cellValue = String(selectedTable.rows?.[0]?.c?.[0]?.v || '').trim();
+      selectedSheetValue = cellValue;
       const videoId = cellValue.split('?')[0].split('&')[0];
       if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
         throw new Error('The selected cell does not contain a valid YouTube ID.');
       }
       return videoId;
+    }
+
+    async function shareVideo() {
+      if (!selectedSheetValue) return;
+      const url = new URL('https://yan1website.github.io/YAN1.home/youtube1.html');
+      url.searchParams.set('txt', selectedSheetValue);
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: 'YouTube video', url: url.href });
+        } else if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(url.href);
+          alert('Permanent link copied. You can paste it into any app.');
+        } else {
+          window.prompt('Copy this permanent link:', url.href);
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') window.prompt('Copy this permanent link:', url.href);
+      }
     }
 
     async function loadRandomVideo() {
@@ -144,12 +171,15 @@
             thumbnailButton.style.display = 'none';
           }, { once: true });
         document.querySelector('#videoContainer').style.display = 'block';
+        document.querySelector('#videoActions').hidden = false;
         status.style.display = 'none';
       } catch (error) {
         console.error(error);
         status.textContent = error.message || 'Unable to load a video.';
       }
     }
+
+    document.querySelector('#shareButton').addEventListener('click', shareVideo);
 
     loadRandomVideo();
   </script>

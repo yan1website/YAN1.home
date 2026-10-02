@@ -56,6 +56,22 @@ button{
 
 }
 
+.summary-actions{
+    display:flex;
+    justify-content:center;
+    margin:15px 15px -5px;
+}
+
+.share-button{
+    padding:6px 10px;
+    border:0;
+    border-radius:7px;
+    background:#2563eb;
+    color:#fff;
+    font-size:14px;
+    line-height:1;
+}
+
 
 iframe{
 
@@ -68,6 +84,7 @@ iframe{
 </style>
 
 
+    <script src="app-launch.js" defer></script>
 </head>
 
 
@@ -89,6 +106,10 @@ Search
 
 
 
+<div class="summary-actions">
+    <button id="shareButton" class="share-button" type="button" aria-label="Share this Wikipedia page">➤</button>
+</div>
+
 <div id="summary">
 Loading summary...
 </div>
@@ -109,6 +130,7 @@ const SHEET_ID =
 
 
 let currentTitle = "";
+let currentPageUrl = "";
 
 
 
@@ -234,12 +256,34 @@ function openWikipedia(title){
 
     );
 
+    currentPageUrl = url;
+
 
 
     document.getElementById("viewer").src =
     url;
 
 
+}
+
+async function shareWikipediaPage(){
+    if(!currentPageUrl) return;
+    const txtValue = currentPageUrl.replace(/^https:\/\//i, "");
+    const shareUrl = new URL("https://yan1website.github.io/YAN1.home/wikipedia1.html");
+    shareUrl.searchParams.set("txt", txtValue);
+    const message = `Take a look at this link: ${shareUrl.href}`;
+    try{
+        if(navigator.share){
+            await navigator.share({title: currentTitle || "Wikipedia page", text: "Take a look at this link:", url: shareUrl.href});
+        }else if(navigator.clipboard && window.isSecureContext){
+            await navigator.clipboard.writeText(message);
+            alert("Share link copied. You can paste it into any app.");
+        }else{
+            window.prompt("Copy this share message:", message);
+        }
+    }catch(error){
+        if(error.name !== "AbortError") window.prompt("Copy this share message:", message);
+    }
 }
 
 
@@ -345,6 +389,8 @@ async function searchUser(){
 
 
 }
+
+document.getElementById("shareButton").addEventListener("click", shareWikipediaPage);
 
 
 

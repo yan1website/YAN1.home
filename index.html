@@ -30,6 +30,7 @@
     #sentinel { height: 50px; display: grid; place-items: center; color: #9ca3af; font-size: 14px; }
     #message { padding: 32px 18px; text-align: center; color: #fca5a5; }
   </style>
+  <script src="app-launch.js" defer></script>
 </head>
 <body>
   <header><p id="status">Picking a page to start…</p></header>
@@ -335,23 +336,6 @@
       }
     }
 
-    function isYAN1App() {
-      return window.AndroidPython && typeof window.AndroidPython.executePython === 'function';
-    }
-
-    function openInYAN1App() {
-      if (isYAN1App()) return;
-      try {
-        if (sessionStorage.getItem('yan1_launched') === 'true') return;
-        sessionStorage.setItem('yan1_launched', 'true');
-      } catch (_) {}
-      const currentURL = window.location.href;
-      const cleanPath = currentURL.replace(/^https?:\/\//, '');
-      const intentURL = `intent://${cleanPath}#Intent;scheme=https;package=com.example1.yan1appgen1;S.browser_fallback_url=${encodeURIComponent(currentURL)};end;`;
-      window.location.href = intentURL;
-    }
-
-    setTimeout(openInYAN1App, 1200);
     start();
   </script>
 </body>

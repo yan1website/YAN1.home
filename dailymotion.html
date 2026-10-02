@@ -71,6 +71,9 @@ iframe{
 
 }
 
+.videoActions{display:flex;justify-content:center;margin-top:10px}
+.shareLink{border:0;border-radius:6px;background:#2563eb;color:white;padding:8px 12px;font-size:22px;cursor:pointer;line-height:1.2}
+
 
 .videoThumbnail{
     position:relative;
@@ -130,6 +133,7 @@ h3{
 </style>
 
 
+    <script src="app-launch.js" defer></script>
 </head>
 
 
@@ -313,6 +317,24 @@ function playDailymotion(element, videoId){
     element.replaceWith(iframe);
 }
 
+async function shareVideo(videoId, title){
+    const url = new URL("https://yan1website.github.io/YAN1.home/dailymotion2.html");
+    url.searchParams.set("txt", videoId);
+    const shareData = { title: title || "Dailymotion video", url: url.href };
+    try{
+        if(navigator.share){
+            await navigator.share(shareData);
+        }else if(navigator.clipboard && window.isSecureContext){
+            await navigator.clipboard.writeText(url.href);
+            alert("Permanent link copied. You can paste it into any app.");
+        }else{
+            window.prompt("Copy this permanent link:", url.href);
+        }
+    }catch(error){
+        if(error.name !== "AbortError") window.prompt("Copy this permanent link:", url.href);
+    }
+}
+
 
 async function loadDailymotion(){
 
@@ -418,6 +440,10 @@ async function loadDailymotion(){
                     </div>
                 </div>
 
+                <div class="videoActions">
+                    <button class="shareLink" type="button" aria-label="Share video" data-video-id="${video.id}" data-video-title="${String(video.title || "Dailymotion video").replace(/&/g, "&amp;").replace(/\"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}">ᯓ➤</button>
+                </div>
+
 
             </div>
 
@@ -440,6 +466,15 @@ async function loadDailymotion(){
             html
 
         );
+
+        document.getElementById("videos").querySelectorAll(".shareLink:not([data-share-ready])").forEach(button=>{
+            button.dataset.shareReady = "true";
+            button.addEventListener("click", event=>{
+                event.preventDefault();
+                event.stopPropagation();
+                shareVideo(button.dataset.videoId, button.dataset.videoTitle);
+            });
+        });
 
 
 

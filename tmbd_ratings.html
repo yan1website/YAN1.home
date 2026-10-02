@@ -281,6 +281,7 @@ max-width:100%;
 
 </style>
 
+  <script src="app-launch.js" defer></script>
 </head>
 
 
@@ -322,6 +323,8 @@ const IMAGE="https://image.tmdb.org/t/p/w500";
 
 const ORIGINAL="https://image.tmdb.org/t/p/original";
 
+const SHEET_ID="1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M";
+
 
 
 async function searchMovie(){
@@ -339,9 +342,6 @@ alert("Enter movie name");
 return;
 
 }
-
-
-
 let url=
 `https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${query}`;
 
@@ -356,6 +356,52 @@ let data=await response.json();
 displayResults(data.results);
 
 
+}
+
+async function loadRandomSearchFromSheet(){
+  const searchInput = document.getElementById("search");
+  const searchButton = document.querySelector(".search-box button");
+  searchInput.disabled = true;
+  searchButton.disabled = true;
+  searchInput.placeholder = "Choosing a random search…";
+
+  async function querySheet(query){
+    const params = new URLSearchParams({ tqx: "out:json", tq: query });
+    const response = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`, { cache: "no-store" });
+    if(!response.ok) throw new Error(`Sheet request failed (${response.status}).`);
+    const text = await response.text();
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if(start < 0 || end < start) throw new Error("Invalid Google Sheets response.");
+    const result = JSON.parse(text.slice(start, end + 1));
+    if(result.status !== "ok") throw new Error(result.errors?.[0]?.detailed_message || "The sheet query failed.");
+    return result.table;
+  }
+
+  try{
+    // Fetch an aggregate count, then request only the selected nonempty cell.
+    const countTable = await querySheet("select count(M) where M is not null");
+    const rowCount = Number(countTable.rows?.[0]?.c?.[0]?.v || 0);
+    if(!Number.isInteger(rowCount) || rowCount < 1) throw new Error("No search values found in column M.");
+
+    const randomOffset = Math.floor(Math.random() * rowCount);
+    const valueTable = await querySheet(`select M where M is not null limit 1 offset ${randomOffset}`);
+    const cell = valueTable.rows?.[0]?.c?.[0];
+    const query = String(cell?.f ?? cell?.v ?? "").trim();
+    if(!query) throw new Error("The selected column M cell is empty.");
+
+    searchInput.value = query;
+    searchInput.placeholder = "Search movie or TV series";
+    searchInput.disabled = false;
+    searchButton.disabled = false;
+    await searchMovie();
+  }catch(error){
+    searchInput.placeholder = "Search movie or TV series";
+    searchInput.disabled = false;
+    searchButton.disabled = false;
+    console.error("Could not load a random search from column M:", error);
+    searchInput.title = error.message || "Could not load a random search from the sheet.";
+  }
 }
 
 
@@ -742,6 +788,8 @@ document.getElementById("results").style.display="grid";
 
 }
 
+
+window.addEventListener("DOMContentLoaded", loadRandomSearchFromSheet);
 
 </script>
 

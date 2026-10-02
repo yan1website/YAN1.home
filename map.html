@@ -408,6 +408,54 @@
       background: #e8f0fe;
       color: #4285f4;
     }
+
+    .live-location-details {
+      position: absolute;
+      right: 76px;
+      bottom: 30px;
+      z-index: 1000;
+      width: min(340px, calc(100vw - 100px));
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.96);
+      box-shadow: 0 2px 12px rgba(0,0,0,.18);
+      color: #1a1a1a;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .live-location-details[hidden] { display: none; }
+    .live-place-name { margin-bottom: 5px; font-size: 15px; font-weight: 700; }
+    .live-place-address { color: #555; }
+    .live-place-coordinates { margin-top: 6px; color: #666; font-size: 12px; }
+
+    .search-place-details {
+      position: absolute;
+      top: 220px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 999;
+      width: min(500px, calc(100vw - 32px));
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.97);
+      box-shadow: 0 2px 12px rgba(0,0,0,.18);
+      color: #1a1a1a;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .search-place-details[hidden] { display: none; }
+    .search-place-title { margin-bottom: 5px; font-size: 15px; font-weight: 700; }
+    .search-place-row { margin-top: 4px; color: #555; overflow-wrap: anywhere; }
+    .search-place-row strong { color: #333; }
+
+    .place-map-popup { position: relative; min-width: 280px; max-width: 360px; padding: 4px 24px 4px 4px; color: #333; font: 16px/1.4 Arial, sans-serif; white-space: normal; }
+    .place-map-popup-title { margin-bottom: 3px; font-weight: 700; }
+    .place-map-popup-address { color: #444; }
+    .place-map-popup-extra { margin-top: 7px; color: #666; font-size: 13px; }
+    .place-map-popup-extra div + div { margin-top: 3px; }
+    .place-map-popup-close { position: absolute; top: -2px; right: 0; border: 0; padding: 0 4px; background: transparent; color: #666; cursor: pointer; font: 22px/1 Arial, sans-serif; }
+    .leaflet-popup-content { margin: 14px 16px; }
     
     /* Footer */
     .footer {
@@ -468,6 +516,7 @@
       }
     }
   </style>
+  <script src="app-launch.js" defer></script>
 </head>
 <body>
   <!-- Home Icon -->
@@ -492,6 +541,12 @@
   </div>
   <div class="search-suggestions" id="searchSuggestions"></div>
 </div>
+<section class="search-place-details" id="searchPlaceDetails" aria-live="polite" hidden>
+  <div class="search-place-title" id="searchPlaceTitle"></div>
+  <div class="search-place-row" id="searchPlaceAddress"></div>
+  <div class="search-place-row" id="searchPlaceCategory"></div>
+  <div class="search-place-row" id="searchPlaceCoordinates"></div>
+</section>
 
 <!-- Left Side Panel -->
 <div class="side-panel" id="sidePanel">
@@ -536,6 +591,11 @@
 <button class="live-location-btn" id="liveLocationBtn" title="My Location">
   📍
 </button>
+<section class="live-location-details" id="liveLocationDetails" aria-live="polite" hidden>
+  <div class="live-place-name" id="livePlaceName">Finding your place…</div>
+  <div class="live-place-address" id="livePlaceAddress"></div>
+  <div class="live-place-coordinates" id="livePlaceCoordinates"></div>
+</section>
 
 <!-- Footer -->
 <div class="footer">
@@ -551,6 +611,7 @@
 // =====================
 const OSRM_BASE = "https://router.project-osrm.org";
 const NOMINATIM_BASE = "https://nominatim.openstreetmap.org/search";
+const NOMINATIM_REVERSE_BASE = "https://nominatim.openstreetmap.org/reverse";
 
 // =====================
 // Utility Functions
@@ -575,14 +636,23 @@ function haversine(lat1, lon1, lat2, lon2) {
 // Geocoding
 // =====================
 async function geocode(query) {
-  const url = NOMINATIM_BASE + "?format=json&q=" + encodeURIComponent(query) + "&limit=1";
+  const url = NOMINATIM_BASE + "?format=jsonv2&addressdetails=1&extratags=1&namedetails=1&q=" + encodeURIComponent(query) + "&limit=1";
   const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
   const data = await res.json();
   if (data && data.length > 0) {
     return {
       lat: parseFloat(data[0].lat),
       lon: parseFloat(data[0].lon),
-      name: data[0].display_name
+      name: data[0].name || data[0].display_name,
+      displayName: data[0].display_name,
+      type: data[0].type,
+      category: data[0].category,
+      address: data[0].address || {},
+      extratags: data[0].extratags || {},
+      importance: data[0].importance,
+      placeId: data[0].place_id,
+      osmType: data[0].osm_type,
+      osmId: data[0].osm_id
     };
   }
   return null;
@@ -590,13 +660,22 @@ async function geocode(query) {
 
 async function searchPlaces(query) {
   if (!query || query.length < 2) return [];
-  const url = NOMINATIM_BASE + "?format=json&q=" + encodeURIComponent(query) + "&limit=5";
+  const url = NOMINATIM_BASE + "?format=jsonv2&addressdetails=1&extratags=1&namedetails=1&q=" + encodeURIComponent(query) + "&limit=5";
   const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
   const data = await res.json();
   return data.map(item => ({
     lat: parseFloat(item.lat),
     lon: parseFloat(item.lon),
-    name: item.display_name
+    name: item.name || item.display_name,
+    displayName: item.display_name,
+    type: item.type,
+    category: item.category,
+    address: item.address || {},
+    extratags: item.extratags || {},
+    importance: item.importance,
+    placeId: item.place_id,
+    osmType: item.osm_type,
+    osmId: item.osm_id
   }));
 }
 
@@ -657,6 +736,15 @@ const searchInput = document.getElementById('searchInput');
 const searchBtn = document.getElementById('searchBtn');
 const searchSuggestions = document.getElementById('searchSuggestions');
 const liveLocationBtn = document.getElementById('liveLocationBtn');
+const liveLocationDetails = document.getElementById('liveLocationDetails');
+const livePlaceName = document.getElementById('livePlaceName');
+const livePlaceAddress = document.getElementById('livePlaceAddress');
+const livePlaceCoordinates = document.getElementById('livePlaceCoordinates');
+const searchPlaceDetails = document.getElementById('searchPlaceDetails');
+const searchPlaceTitle = document.getElementById('searchPlaceTitle');
+const searchPlaceAddress = document.getElementById('searchPlaceAddress');
+const searchPlaceCategory = document.getElementById('searchPlaceCategory');
+const searchPlaceCoordinates = document.getElementById('searchPlaceCoordinates');
 
 // =====================
 // Panel Toggle
@@ -689,11 +777,15 @@ searchInput.addEventListener('input', () => {
   searchTimeout = setTimeout(async () => {
     const places = await searchPlaces(query);
     if (places.length > 0) {
-      searchSuggestions.innerHTML = places.map(p => 
-        `<div class="suggestion-item" data-lat="${p.lat}" data-lon="${p.lon}">
-          ${p.name}
-        </div>`
-      ).join('');
+      searchSuggestions.replaceChildren();
+      places.forEach((place, index) => {
+        const item = document.createElement('div');
+        item.className = 'suggestion-item';
+        item.dataset.index = String(index);
+        item.textContent = place.displayName || place.name;
+        searchSuggestions.append(item);
+      });
+      searchSuggestions._places = places;
       searchSuggestions.classList.add('active');
     } else {
       searchSuggestions.classList.remove('active');
@@ -704,15 +796,16 @@ searchInput.addEventListener('input', () => {
 searchSuggestions.addEventListener('click', (e) => {
   if (e.target.classList.contains('suggestion-item') || e.target.closest('.suggestion-item')) {
     const item = e.target.closest('.suggestion-item');
-    const lat = parseFloat(item.dataset.lat);
-    const lon = parseFloat(item.dataset.lon);
-    const name = item.textContent.trim();
+    const place = searchSuggestions._places?.[Number(item.dataset.index)];
+    if (!place) return;
+    const { lat, lon } = place;
+    const name = place.name || place.displayName;
     
     searchInput.value = name;
     searchSuggestions.classList.remove('active');
     
-    goToLocation(lat, lon, name);
-    currentSearchResult = { lat, lon, name };
+    goToLocation(lat, lon, name, place);
+    currentSearchResult = place;
   }
 });
 
@@ -722,7 +815,7 @@ searchBtn.addEventListener('click', async () => {
   
   const place = await geocode(query);
   if (place) {
-    goToLocation(place.lat, place.lon, place.name);
+    goToLocation(place.lat, place.lon, place.name, place);
     searchSuggestions.classList.remove('active');
     currentSearchResult = place;
   } else {
@@ -742,13 +835,68 @@ document.addEventListener('click', (e) => {
   }
 });
 
-function goToLocation(lat, lon, name) {
+function goToLocation(lat, lon, name, place = {}) {
+  liveLocationDetails.hidden = true;
   if (searchMarker) {
     map.removeLayer(searchMarker);
   }
   
+  const address = place.address || {};
+  const fullAddress = place.displayName || [
+    address.house_number && address.road ? `${address.house_number} ${address.road}` : address.road,
+    address.neighbourhood || address.suburb,
+    address.city || address.town || address.village,
+    address.state,
+    address.postcode,
+    address.country
+  ].filter(Boolean).join(', ');
+
+  searchPlaceDetails.hidden = true;
+
+  const popup = document.createElement('div');
+  popup.className = 'place-map-popup';
+  const closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.className = 'place-map-popup-close';
+  closeButton.setAttribute('aria-label', 'Close place details');
+  closeButton.textContent = '×';
+  closeButton.addEventListener('click', () => map.closePopup());
+  const popupTitle = document.createElement('div');
+  popupTitle.className = 'place-map-popup-title';
+  popupTitle.textContent = name || 'Selected place';
+  const popupAddress = document.createElement('div');
+  popupAddress.className = 'place-map-popup-address';
+  popupAddress.textContent = fullAddress || 'Address details unavailable';
+  const popupExtra = document.createElement('div');
+  popupExtra.className = 'place-map-popup-extra';
+  const addPopupDetail = (label, value) => {
+    if (!value) return;
+    const row = document.createElement('div');
+    const labelNode = document.createElement('strong');
+    labelNode.textContent = `${label}: `;
+    row.append(labelNode, document.createTextNode(String(value)));
+    popupExtra.append(row);
+  };
+  addPopupDetail('Type', [place.category, place.type].filter(Boolean).join(' · '));
+  addPopupDetail('Postcode', address.postcode);
+  addPopupDetail('Phone', place.extratags?.phone || place.extratags?.['contact:phone']);
+  addPopupDetail('Website', place.extratags?.website || place.extratags?.['contact:website']);
+  addPopupDetail('Email', place.extratags?.email || place.extratags?.['contact:email']);
+  addPopupDetail('Coordinates', `${Number(lat).toFixed(5)}, ${Number(lon).toFixed(5)}`);
+  if (place.osmType && place.osmId) {
+    const osmLink = document.createElement('a');
+    const osmKind = place.osmType === 'node' ? 'node' : place.osmType === 'way' ? 'way' : 'relation';
+    osmLink.href = `https://www.openstreetmap.org/${osmKind}/${encodeURIComponent(place.osmId)}`;
+    osmLink.target = '_blank';
+    osmLink.rel = 'noopener noreferrer';
+    osmLink.textContent = 'View on OpenStreetMap';
+    const row = document.createElement('div');
+    row.append(osmLink);
+    popupExtra.append(row);
+  }
+  popup.append(closeButton, popupTitle, popupAddress, popupExtra);
   searchMarker = L.marker([lat, lon]).addTo(map)
-    .bindPopup(`<strong>${name}</strong>`)
+    .bindPopup(popup)
     .openPopup();
   
   map.setView([lat, lon], 14);
@@ -843,6 +991,73 @@ function clearRoute() {
 // =====================
 // Live Location
 // =====================
+let lastReverseGeocodeAt = 0;
+let lastReverseGeocodePosition = null;
+let reverseGeocodeRequest = 0;
+
+function compactAddress(address) {
+  if (!address) return '';
+  const parts = [
+    address.house_number && address.road ? `${address.house_number} ${address.road}` : address.road,
+    address.neighbourhood || address.suburb || address.village || address.town || address.city,
+    address.state,
+    address.postcode,
+    address.country
+  ].filter(Boolean);
+  return [...new Set(parts)].join(', ');
+}
+
+async function updateLivePlaceDetails(lat, lon, accuracy) {
+  liveLocationDetails.hidden = false;
+  livePlaceCoordinates.textContent = `Coordinates: ${lat.toFixed(5)}, ${lon.toFixed(5)} · Accuracy: about ${Math.round(accuracy)} m`;
+
+  const movedEnough = !lastReverseGeocodePosition || haversine(
+    lastReverseGeocodePosition.lat,
+    lastReverseGeocodePosition.lon,
+    lat,
+    lon
+  ) >= 100;
+  if (!movedEnough && Date.now() - lastReverseGeocodeAt < 60000) return;
+
+  const requestId = ++reverseGeocodeRequest;
+  lastReverseGeocodeAt = Date.now();
+  lastReverseGeocodePosition = { lat, lon };
+  livePlaceName.textContent = 'Finding your place…';
+
+  try {
+    const params = new URLSearchParams({
+      format: 'jsonv2',
+      lat: String(lat),
+      lon: String(lon),
+      zoom: '18',
+      addressdetails: '1'
+    });
+    const response = await fetch(`${NOMINATIM_REVERSE_BASE}?${params}`, {
+      headers: { Accept: 'application/json' }
+    });
+    if (!response.ok) throw new Error(`Place lookup failed (${response.status})`);
+    const place = await response.json();
+    if (requestId !== reverseGeocodeRequest) return;
+
+    const address = place.address || {};
+    livePlaceName.textContent = address.amenity || address.building || address.road || address.village || address.town || address.city || address.county || place.name || 'Place name unavailable';
+    livePlaceAddress.textContent = compactAddress(address) || place.display_name || 'Address details unavailable';
+    if (liveMarker) {
+      liveMarker.setPopupContent(`<strong>${escapeHtml(livePlaceName.textContent)}</strong><br>${escapeHtml(livePlaceAddress.textContent)}`);
+    }
+  } catch (error) {
+    if (requestId !== reverseGeocodeRequest) return;
+    livePlaceName.textContent = 'Your current location';
+    livePlaceAddress.textContent = 'Place name is temporarily unavailable.';
+  }
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+}
+
 function startLiveLocation() {
   if (!navigator.geolocation) {
     alert('Geolocation is not supported by your browser');
@@ -856,6 +1071,8 @@ function startLiveLocation() {
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
       const acc = pos.coords.accuracy || 50;
+
+      updateLivePlaceDetails(lat, lon, acc);
       
       if (liveMarker) {
         liveMarker.setLatLng([lat, lon]);
@@ -869,7 +1086,7 @@ function startLiveLocation() {
         
         liveMarker = L.marker([lat, lon], { icon: liveIcon })
           .addTo(map)
-          .bindPopup('Your location');
+          .bindPopup('Finding your place…');
         
         liveCircle = L.circle([lat, lon], {
           radius: acc,
@@ -915,6 +1132,7 @@ liveLocationBtn.addEventListener('click', () => {
       map.removeLayer(liveCircle);
       liveCircle = null;
     }
+    liveLocationDetails.hidden = true;
     return;
   }
   

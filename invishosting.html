@@ -1,0 +1,959 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Random InvisHosting Video</title>
+
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+
+        html,
+        body {
+
+            margin: 0;
+            padding: 0;
+
+            width: 100%;
+            min-height: 100%;
+
+            font-family: Arial, sans-serif;
+
+            background: #111;
+
+            color: white;
+        }
+
+
+        .container {
+
+            width: 100%;
+            max-width: 1000px;
+
+            margin: 0 auto;
+
+            padding: 20px;
+        }
+
+
+        h1 {
+
+            text-align: center;
+
+            margin: 0 0 20px 0;
+        }
+
+
+        .status {
+
+            text-align: center;
+
+            background: #222;
+
+            padding: 12px;
+
+            border-radius: 8px;
+
+            margin-bottom: 20px;
+
+            color: #ccc;
+        }
+
+
+        .video-container {
+
+            width: 100%;
+
+            background: #000;
+
+            border-radius: 10px;
+
+            overflow: hidden;
+        }
+
+
+        video {
+
+            display: block;
+
+            width: 100%;
+
+            height: auto;
+
+            max-height: 80vh;
+
+            background: #000;
+        }
+
+        .file-preview {
+            display: block;
+            width: 100%;
+            max-height: 80vh;
+            background: #000;
+        }
+
+        .file-preview[hidden] {
+            display: none;
+        }
+
+        #imagePlayer {
+            height: auto;
+            object-fit: contain;
+        }
+
+        #documentPlayer {
+            height: 80vh;
+            min-height: 420px;
+            border: 0;
+        }
+
+
+        .info {
+
+            text-align: center;
+
+            margin-top: 15px;
+
+            color: #aaa;
+
+            font-size: 14px;
+        }
+
+
+        .buttons {
+
+            display: flex;
+
+            justify-content: center;
+
+            gap: 10px;
+
+            flex-wrap: wrap;
+
+            margin-top: 20px;
+        }
+
+
+        button {
+
+            border: none;
+
+            padding: 12px 20px;
+
+            border-radius: 7px;
+
+            background: white;
+
+            color: black;
+
+            font-size: 15px;
+
+            cursor: pointer;
+        }
+
+
+        button:hover {
+
+            background: #ddd;
+        }
+
+        .share-button {
+            min-width: 48px;
+            padding: 10px 14px;
+            font-size: 21px;
+        }
+
+
+        button:disabled {
+
+            background: #555;
+
+            color: #aaa;
+
+            cursor: not-allowed;
+        }
+
+
+        .open-button {
+
+            display: inline-block;
+
+            padding: 12px 20px;
+
+            background: white;
+
+            color: black;
+
+            text-decoration: none;
+
+            border-radius: 7px;
+        }
+
+
+        .open-button:hover {
+
+            background: #ddd;
+        }
+
+
+        .error {
+
+            color: #ff7777;
+        }
+
+    </style>
+
+    <script src="app-launch.js" defer></script>
+</head>
+
+
+<body>
+
+
+<div class="container">
+
+
+    <h1>
+        Random Video
+    </h1>
+
+
+    <div
+        id="status"
+        class="status"
+    >
+        Connecting to Google Sheet...
+    </div>
+
+
+    <div class="video-container">
+
+        <video
+            id="videoPlayer"
+            controls
+            playsinline
+            preload="metadata"
+        >
+
+            Your browser does not support HTML5 video.
+
+        </video>
+
+        <img id="imagePlayer" class="file-preview" alt="Selected image" hidden>
+        <audio id="audioPlayer" class="file-preview" controls preload="metadata" hidden></audio>
+        <iframe id="documentPlayer" class="file-preview" title="Selected file preview" hidden></iframe>
+
+    </div>
+
+
+    <div
+        id="info"
+        class="info"
+    >
+        Loading...
+    </div>
+
+
+    <div class="buttons">
+
+
+        <button
+            id="nextButton"
+            onclick="loadRandomVideo()"
+            disabled
+        >
+            Next Random Video
+        </button>
+
+        <button
+            id="shareButton"
+            class="share-button"
+            type="button"
+            aria-label="Share permanent video link"
+            title="Share permanent video link"
+            disabled
+        >
+            ᯓ➤
+        </button>
+
+
+        <a
+            id="openButton"
+            class="open-button"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            style="display:none;"
+        >
+            Open Video
+        </a>
+
+
+    </div>
+
+
+</div>
+
+
+
+<script>
+
+
+/*
+=========================================================
+GOOGLE SHEET
+=========================================================
+*/
+
+
+const SPREADSHEET_ID =
+    "1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M";
+
+
+/*
+Column N = column 14
+*/
+
+
+const COLUMN_RANGE = "N:O";
+
+
+/*
+=========================================================
+ELEMENTS
+=========================================================
+*/
+
+
+const statusBox =
+    document.getElementById("status");
+
+
+const infoBox =
+    document.getElementById("info");
+
+
+const videoPlayer =
+    document.getElementById("videoPlayer");
+
+
+const imagePlayer =
+    document.getElementById("imagePlayer");
+
+
+const audioPlayer =
+    document.getElementById("audioPlayer");
+
+
+const documentPlayer =
+    document.getElementById("documentPlayer");
+
+
+const nextButton =
+    document.getElementById("nextButton");
+
+
+const openButton =
+    document.getElementById("openButton");
+
+
+const shareButton =
+    document.getElementById("shareButton");
+
+
+/*
+=========================================================
+STORE SHEET DATA
+=========================================================
+*/
+
+
+let sheetValues = [];
+
+
+let currentSheetValue = "";
+
+
+let currentFileType = "video";
+
+
+/*
+=========================================================
+LOAD GOOGLE SHEET
+=========================================================
+*/
+
+
+async function loadGoogleSheet() {
+
+
+    statusBox.textContent =
+        "Reading columns N and O from Google Sheet...";
+
+
+    try {
+
+
+        /*
+        Google Visualization endpoint.
+
+        This reads column N (file value) and
+        column O (file extension) together.
+        */
+
+
+        const url =
+            "https://docs.google.com/spreadsheets/d/"
+            + SPREADSHEET_ID
+            + "/gviz/tq?tqx=out:json"
+            + "&range="
+            + COLUMN_RANGE;
+
+
+        const response =
+            await fetch(url);
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Google Sheet request failed: "
+                + response.status
+            );
+
+        }
+
+
+        const text =
+            await response.text();
+
+
+        /*
+        Google Visualization returns something
+        similar to:
+
+        google.visualization.Query.setResponse({...});
+        */
+
+
+        const jsonText =
+            text.substring(
+                text.indexOf("{"),
+                text.lastIndexOf("}") + 1
+            );
+
+
+        const data =
+            JSON.parse(jsonText);
+
+
+        /*
+        Get each file value from column N and its
+        matching extension from column O.
+        */
+
+
+        const rows =
+            data.table.rows || [];
+
+
+        sheetValues = [];
+
+
+        rows.forEach(function(row) {
+
+
+            if (
+                row.c &&
+                row.c[0] &&
+                row.c[0].v !== null &&
+                row.c[0].v !== undefined
+            ) {
+
+
+                const value =
+                    String(row.c[0].v).trim();
+
+
+                const extension = row.c[1] && row.c[1].v !== null
+                    ? String(row.c[1].v).trim().replace(/^\./, "").toLowerCase()
+                    : "";
+
+
+                if (value !== "") {
+
+                    sheetValues.push({ value: value, extension: extension });
+
+                }
+
+            }
+
+        });
+
+
+        /*
+        Check whether anything was found.
+        */
+
+
+        if (sheetValues.length === 0) {
+
+            throw new Error(
+                "No file values were found in column N."
+            );
+
+        }
+
+
+        /*
+        Display number of rows.
+        */
+
+
+        statusBox.textContent =
+            "Columns N and O loaded successfully. "
+            + sheetValues.length
+            + " file(s) found.";
+
+
+        /*
+        Enable random button.
+        */
+
+
+        nextButton.disabled = false;
+
+
+        /*
+        Automatically select the first
+        random video.
+        */
+
+
+        loadRandomVideo();
+
+
+    }
+    catch (error) {
+
+
+        console.error(error);
+
+
+        statusBox.innerHTML =
+            '<span class="error">'
+            + "Could not read Google Sheet: "
+            + escapeHTML(error.message)
+            + "</span>";
+
+
+        infoBox.textContent =
+            "Check that your Google Sheet is publicly accessible.";
+
+    }
+
+}
+
+
+/*
+=========================================================
+SELECT RANDOM FILE
+=========================================================
+*/
+
+
+function loadRandomVideo() {
+
+
+    if (sheetValues.length === 0) {
+
+        return;
+
+    }
+
+
+    /*
+    Generate random number.
+
+    Example:
+
+    10 files
+
+    random number:
+    0 - 9
+    */
+
+
+    const randomIndex =
+        Math.floor(
+            Math.random()
+            * sheetValues.length
+        );
+
+
+    /*
+    Convert array index to human
+    row number.
+
+    If the first value is at row 1:
+
+    index 0 = row 1
+    index 1 = row 2
+    */
+
+
+    const randomRowNumber =
+        randomIndex + 1;
+
+
+    /*
+    Get column N value.
+    */
+
+
+    const selectedFile = sheetValues[randomIndex];
+    const value = selectedFile.value;
+
+
+    currentSheetValue = value;
+    shareButton.disabled = false;
+
+
+    /*
+    Convert value to InvisHosting URL.
+    */
+
+
+    let videoURL;
+
+
+    /*
+    If column N already contains a full
+    InvisHosting URL, use it directly.
+    */
+
+
+    if (
+        value.startsWith(
+            "https://"
+        ) ||
+        value.startsWith(
+            "http://"
+        )
+    ) {
+
+        videoURL = value;
+
+    }
+
+
+    /*
+    Otherwise treat the value as the
+    InvisHosting file ID.
+    */
+
+
+    else {
+
+        videoURL =
+            "https://invishosting.com/view.php?id="
+            + encodeURIComponent(value);
+
+    }
+
+
+    displayFile(videoURL, value, selectedFile.extension);
+
+
+    /*
+    Set Open Video button.
+    */
+
+
+    openButton.href =
+        videoURL;
+
+
+    openButton.style.display =
+        "inline-block";
+
+
+    /*
+    Show information.
+    */
+
+
+    infoBox.innerHTML =
+        "Random number: <strong>"
+        + randomRowNumber
+        + "</strong>"
+        + " &nbsp; | &nbsp; "
+        + "Column N entries: <strong>"
+        + sheetValues.length
+        + "</strong>"
+        + " &nbsp; | &nbsp; "
+        + "File type: <strong>"
+        + escapeHTML(currentFileType)
+        + "</strong>";
+
+
+    statusBox.textContent =
+        currentFileType.charAt(0).toUpperCase()
+        + currentFileType.slice(1)
+        + " selected.";
+
+
+}
+
+
+function displayFile(fileURL, originalValue, sheetExtension) {
+
+    const viewers = [videoPlayer, imagePlayer, audioPlayer, documentPlayer];
+    viewers.forEach(function (viewer) {
+        viewer.hidden = true;
+        if (viewer.tagName === "VIDEO" || viewer.tagName === "AUDIO") {
+            viewer.pause();
+            viewer.removeAttribute("src");
+            viewer.load();
+        }
+        else {
+            viewer.removeAttribute("src");
+        }
+    });
+
+    const extension = String(sheetExtension || getFileExtension(originalValue, fileURL))
+        .trim()
+        .replace(/^\./, "")
+        .toLowerCase();
+    let type = "video";
+
+    if (/^(png|jpe?g|gif|webp|avif|svg|bmp|ico)$/i.test(extension)) {
+        type = "image";
+    }
+    else if (/^(mp3|wav|ogg|oga|m4a|aac|flac|opus)$/i.test(extension)) {
+        type = "audio";
+    }
+    else if (extension === "pdf") {
+        type = "document";
+    }
+    else if (/^(mp4|m4v|webm|ogv|mov|m3u8|mpd)$/i.test(extension)) {
+        type = "video";
+    }
+    else if (extension && !/^php$/i.test(extension)) {
+        type = "document";
+    }
+
+    if (type === "image") {
+        imagePlayer.src = fileURL;
+        imagePlayer.hidden = false;
+    }
+    else if (type === "audio") {
+        audioPlayer.src = fileURL;
+        audioPlayer.hidden = false;
+        audioPlayer.load();
+    }
+    else if (type === "document") {
+        documentPlayer.src = fileURL;
+        documentPlayer.hidden = false;
+    }
+    else {
+        videoPlayer.src = fileURL;
+        videoPlayer.hidden = false;
+        videoPlayer.load();
+    }
+
+    currentFileType = type;
+    infoBox.textContent = "File type: " + type;
+    statusBox.textContent = type.charAt(0).toUpperCase() + type.slice(1) + " selected.";
+}
+
+
+function getFileExtension(originalValue, fileURL) {
+
+    const candidates = [originalValue];
+
+    try {
+        const parsed = new URL(fileURL);
+        candidates.push(parsed.pathname, parsed.searchParams.get("id") || "");
+    }
+    catch {
+        // Use the original sheet value when the URL cannot be parsed.
+    }
+
+    for (const candidate of candidates) {
+        const clean = String(candidate).split(/[?#]/, 1)[0];
+        const match = clean.match(/\.([a-z0-9]{2,8})$/i);
+        if (match && !/^php$/i.test(match[1])) return match[1].toLowerCase();
+    }
+
+    return "";
+}
+
+
+async function shareCurrentVideo() {
+
+    if (!currentSheetValue) {
+
+        return;
+
+    }
+
+    const permanentLink =
+        new URL("https://yan1website.github.io/YAN1.home/invishosting2.html");
+
+    permanentLink.searchParams.set("txt", currentSheetValue);
+
+    try {
+
+        if (navigator.share) {
+
+            await navigator.share({
+                title: "InvisHosting video",
+                url: permanentLink.href
+            });
+
+        }
+        else if (navigator.clipboard && window.isSecureContext) {
+
+            await navigator.clipboard.writeText(permanentLink.href);
+            alert("Permanent link copied. You can share it in any app.");
+
+        }
+        else {
+
+            window.prompt("Copy this permanent link to share:", permanentLink.href);
+
+        }
+
+    }
+    catch (error) {
+
+        if (error.name !== "AbortError") {
+
+            window.prompt("Copy this permanent link to share:", permanentLink.href);
+
+        }
+
+    }
+
+}
+
+
+shareButton.addEventListener(
+    "click",
+    shareCurrentVideo
+);
+
+
+/*
+=========================================================
+VIDEO EVENTS
+=========================================================
+*/
+
+
+videoPlayer.addEventListener(
+    "loadedmetadata",
+    function () {
+
+        if (!videoPlayer.hidden) {
+            statusBox.textContent = "Video loaded successfully.";
+        }
+
+    }
+);
+
+
+videoPlayer.addEventListener(
+    "error",
+    function () {
+
+        if (!videoPlayer.hidden) {
+            statusBox.innerHTML =
+                '<span class="error">'
+                + "The selected video could not be loaded."
+                + "</span>";
+        }
+
+    }
+);
+
+
+imagePlayer.addEventListener("error", function () {
+    if (!imagePlayer.hidden) {
+        statusBox.innerHTML = '<span class="error">The selected image could not be loaded.</span>';
+    }
+});
+
+
+audioPlayer.addEventListener("error", function () {
+    if (!audioPlayer.hidden) {
+        statusBox.innerHTML = '<span class="error">The selected audio file could not be loaded.</span>';
+    }
+});
+
+
+/*
+=========================================================
+HTML ESCAPE
+=========================================================
+*/
+
+
+function escapeHTML(text) {
+
+    return text
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
+
+
+/*
+=========================================================
+START
+=========================================================
+*/
+
+
+loadGoogleSheet();
+
+
+</script>
+
+
+</body>
+
+</html>
+```

@@ -1,166 +1,214 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>More Games</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f5f0e7;
-      color: #17211b;
-    }
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Featured Game</title>
+	<style>
+		:root {
+			--ink: #17211b;
+			--muted: #68736b;
+			--paper: #f5f0e7;
+			--panel: #fffdf8;
+			--accent: #e85d3f;
+			--accent-dark: #b93d28;
+			--line: #ded7c9;
+		}
 
-    .wrap {
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 40px 20px;
-    }
+		* { box-sizing: border-box; }
 
-    h1 {
-      margin-bottom: 20px;
-      text-align: center;
-    }
+		body {
+			min-height: 100vh;
+			margin: 0;
+			color: var(--ink);
+			background:
+				linear-gradient(135deg, rgba(255, 255, 255, .58), transparent 42%),
+				repeating-linear-gradient(0deg, rgba(23, 33, 27, .035) 0 1px, transparent 1px 5px),
+				var(--paper);
+			font-family: Georgia, "Times New Roman", serif;
+		}
 
-    .games-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 20px;
-    }
+		main {
+			width: min(760px, calc(100% - 32px));
+			margin: 0 auto;
+			padding: 12vh 0 10vh;
+		}
 
-    .game-card {
-      background: #fffdf8;
-      border: 1px solid #ded7c9;
-      box-shadow: 6px 8px 0 rgba(23, 33, 27, .06);
-      padding: 12px;
-      text-align: center;
-    }
+		#game-panel {
+			overflow: hidden;
+			background: var(--panel);
+			border: 1px solid var(--line);
+			box-shadow: 10px 12px 0 rgba(23, 33, 27, .08);
+		}
 
-    .game-card img {
-      width: 100%;
-      height: 180px;
-      object-fit: contain;
-      display: block;
-      background: #d8ddd4;
-    }
+		#game-image {
+			display: block;
+			width: 100%;
+			height: auto;
+			object-fit: contain;
+			background: #d8ddd4;
+		}
 
-    .game-card button {
-      margin-top: 12px;
-      padding: 10px 16px;
-      border: 0;
-      background: #e85d3f;
-      color: white;
-      cursor: pointer;
-      font-weight: 700;
-    }
+		.details {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 20px;
+			padding: 22px 24px;
+		}
 
-    .game-card button:disabled {
-      cursor: wait;
-      opacity: .6;
-    }
+		#status {
+			margin: 0;
+			color: var(--muted);
+			font: 500 .9rem/1.4 Arial, sans-serif;
+		}
 
-    #status {
-      text-align: center;
-      min-height: 1.5em;
-    }
+		#play-button {
+			flex: 0 0 auto;
+			padding: 13px 22px;
+			color: #fff;
+			background: var(--accent);
+			border: 0;
+			border-radius: 2px;
+			cursor: pointer;
+			font: 700 .9rem Arial, sans-serif;
+			transition: background-color .2s ease, transform .2s ease;
+		}
 
-    .error {
-      color: #a32918;
-    }
-  </style>
+		#more-games-button {
+			margin-top: 16px;
+			padding: 12px 18px;
+			background: transparent;
+			border: 1px solid var(--ink);
+			color: var(--ink);
+			cursor: pointer;
+			font: 600 .9rem Arial, sans-serif;
+			transition: background-color .2s ease, transform .2s ease;
+		}
+
+		#share-button {
+			display: block;
+			margin: 0 auto 16px;
+			padding: 7px 11px;
+			background: var(--ink);
+			border: 0;
+			color: white;
+			cursor: pointer;
+			font: 700 .95rem Arial, sans-serif;
+		}
+
+		#play-button:hover, #more-games-button:hover { transform: translateY(-2px); }
+		#play-button:disabled { cursor: wait; opacity: .55; transform: none; }
+
+		.error { color: var(--accent-dark) !important; }
+
+		@media (max-width: 520px) {
+			main { width: min(100% - 24px, 760px); padding-top: 9vh; }
+			.details { align-items: stretch; flex-direction: column; padding: 18px; }
+			#play-button { width: 100%; }
+		}
+	</style>
+	<script src="app-launch.js" defer></script>
 </head>
 <body>
-  <div class="wrap">
-    <h1>More Games</h1>
-    <p id="status" role="status">Loading games...</p>
-    <div id="games-grid" class="games-grid"></div>
-  </div>
+	<main>
+		<section id="game-panel" aria-live="polite">
+			<img id="game-image" alt="" hidden>
+			<div class="details">
+				<p id="status">Choosing a game...</p>
+				<button id="play-button" type="button" disabled>Play</button>
+			</div>
+		</section>
+		<button id="share-button" type="button" aria-label="Share this game" disabled>ᯓ➤</button>
+		<button id="more-games-button" type="button">More Games</button>
+	</main>
 
-  <template id="game-card-template">
-    <div class="game-card">
-      <img alt="Game image">
-      <button type="button">Open game</button>
-    </div>
-  </template>
+	<script>
+		const SHEET_ID = '1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M';
+		const SHEET_GID = ''; // Add a gid here when the data is on a non-first sheet.
+		const GAME_BASE_URL = 'https://www.addictinggames.com/embed/html5-games/';
 
-  <script>
-    const SHEET_ID = '1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M';
-    const SHEET_NAME = 'Sheet1';
-    const ADDICTING_GAMES_URL = 'https://www.addictinggames.com/embed/html5-games/';
+		const image = document.querySelector('#game-image');
+		const status = document.querySelector('#status');
+		const playButton = document.querySelector('#play-button');
+		const shareButton = document.querySelector('#share-button');
+		let gameUrl = '';
+		let gameNumber = '';
 
-    const status = document.querySelector('#status');
-    const gamesGrid = document.querySelector('#games-grid');
-    const gameCardTemplate = document.querySelector('#game-card-template');
+		function queryUrl(query) {
+			const params = new URLSearchParams({
+				tq: query,
+				tqx: 'out:json',
+				headers: '1'
+			});
+			if (SHEET_GID) params.set('gid', SHEET_GID);
+			return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`;
+		}
 
-    function sheetQueryUrl(query) {
-      const params = new URLSearchParams({
-        sheet: SHEET_NAME,
-        tqx: 'out:json',
-        tq: query
-      });
-      return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`;
-    }
+		async function runSheetQuery(query) {
+			const response = await fetch(queryUrl(query), { cache: 'no-store' });
+			if (!response.ok) throw new Error(`Sheet request failed (${response.status})`);
+			const text = await response.text();
+			const jsonText = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+			const data = JSON.parse(jsonText);
+			if (data.status !== 'ok') throw new Error(data.errors?.[0]?.detailed_message || 'The sheet query failed.');
+			return data.table;
+		}
 
-    async function querySheet(query) {
-      const response = await fetch(sheetQueryUrl(query), { cache: 'no-store' });
-      if (!response.ok) throw new Error(`Google Sheets request failed (${response.status})`);
+		async function loadRandomGame() {
+			try {
+				// COUNT reads one aggregate value; it does not return column E values.
+				const countTable = await runSheetQuery('select count(E) where E is not null');
+				const rowCount = Number(countTable.rows?.[0]?.c?.[0]?.v || 0);
+				if (!Number.isInteger(rowCount) || rowCount < 1) throw new Error('No image URLs were found in column E.');
 
-      const text = await response.text();
-      const start = text.indexOf('{');
-      const end = text.lastIndexOf('}');
-      if (start < 0 || end < start) throw new Error('Invalid Google Sheets response');
+				const randomRow = Math.floor(Math.random() * rowCount);
+				const gameTable = await runSheetQuery(`select E, F where E is not null limit 1 offset ${randomRow}`);
+				const cells = gameTable.rows?.[0]?.c || [];
+				const imageUrl = String(cells[0]?.v || '').trim();
+				gameNumber = String(cells[1]?.v || '').trim();
+				if (!imageUrl || !gameNumber) throw new Error('The selected row is missing column E or F data.');
 
-      const result = JSON.parse(text.slice(start, end + 1));
-      if (result.status !== 'ok') {
-        throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed');
-      }
-      return result.table;
-    }
+				gameUrl = `${GAME_BASE_URL}${encodeURIComponent(gameNumber)}`;
+				image.src = imageUrl;
+				image.alt = `Game ${gameNumber}`;
+				image.hidden = false;
+				status.textContent = 'Your random game is ready.';
+				playButton.disabled = false;
+				shareButton.disabled = false;
+			} catch (error) {
+				status.textContent = error.message || 'Unable to load a game right now.';
+				status.classList.add('error');
+			}
+		}
 
-    function shuffle(items) {
-      for (let index = items.length - 1; index > 0; index -= 1) {
-        const randomIndex = Math.floor(Math.random() * (index + 1));
-        [items[index], items[randomIndex]] = [items[randomIndex], items[index]];
-      }
-      return items;
-    }
+		playButton.addEventListener('click', () => {
+			if (gameUrl) window.open(gameUrl, '_blank', 'noopener,noreferrer');
+		});
 
-    async function loadGames() {
-      try {
-        const table = await querySheet('select E, F where E is not null and F is not null');
-        const games = (table.rows || []).map((row) => {
-          const cells = row.c || [];
-          return {
-            imageUrl: String(cells[0]?.v || '').trim(),
-            gameId: String(cells[1]?.v || '').trim()
-          };
-        }).filter((game) => /^https?:\/\//i.test(game.imageUrl) && game.gameId);
+		async function shareGame() {
+			const url = new URL('https://yan1website.github.io/YAN1.home/games2.html');
+			url.searchParams.set('txt', gameNumber);
+			try {
+				if (navigator.share) {
+					await navigator.share({ title: 'Game', url: url.href });
+				} else if (navigator.clipboard && window.isSecureContext) {
+					await navigator.clipboard.writeText(url.href);
+					alert('Permanent link copied. You can paste it into any app.');
+				} else {
+					window.prompt('Copy this permanent link:', url.href);
+				}
+			} catch (error) {
+				if (error.name !== 'AbortError') window.prompt('Copy this permanent link:', url.href);
+			}
+		}
+		shareButton.addEventListener('click', shareGame);
 
-        if (!games.length) throw new Error('No valid image and game ID rows were found.');
+		document.querySelector('#more-games-button').addEventListener('click', () => {
+			window.location.href = 'games1.html';
+		});
 
-        gamesGrid.replaceChildren();
-        const fragment = document.createDocumentFragment();
-        shuffle(games).forEach(({ imageUrl, gameId }) => {
-          const card = gameCardTemplate.content.cloneNode(true);
-          const image = card.querySelector('img');
-          const button = card.querySelector('button');
-          image.src = imageUrl;
-          image.alt = `Game ${gameId}`;
-          button.addEventListener('click', () => {
-            window.open(`${ADDICTING_GAMES_URL}${encodeURIComponent(gameId)}`, '_blank', 'noopener,noreferrer');
-          });
-          fragment.appendChild(card);
-        });
-        gamesGrid.appendChild(fragment);
-        status.textContent = `${games.length} games loaded in random order.`;
-      } catch (error) {
-        status.textContent = error.message || 'Unable to load a game right now.';
-        status.classList.add('error');
-      }
-    }
-
-    loadGames();
-  </script>
+		loadRandomGame();
+	</script>
 </body>
 </html>
