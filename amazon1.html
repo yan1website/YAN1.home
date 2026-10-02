@@ -47,6 +47,51 @@
 			background: #f3f0e9;
 		}
 
+		#image-trigger {
+			display: block;
+			width: 100%;
+			padding: 0;
+			background: transparent;
+		}
+
+		#image-trigger:hover { background: transparent; transform: none; }
+		#product-image { cursor: zoom-in; }
+
+		.product-details {
+			margin: 0 0 14px;
+			color: var(--accent-dark);
+			font: 700 18px/1.4 Arial, sans-serif;
+			white-space: pre-wrap;
+		}
+
+		#image-modal {
+			position: fixed;
+			inset: 0;
+			z-index: 10;
+			display: grid;
+			place-items: center;
+			padding: 24px;
+			background: rgba(12, 17, 14, .94);
+		}
+
+		#image-modal[hidden] { display: none; }
+
+		#modal-image {
+			max-width: 96vw;
+			max-height: 90vh;
+			object-fit: contain;
+		}
+
+		#close-modal {
+			position: fixed;
+			top: 18px;
+			right: 18px;
+			min-width: 0;
+			padding: 10px 16px;
+			font-size: 24px;
+			line-height: 1;
+		}
+
 		.actions {
 			display: grid;
 			grid-template-columns: 1fr 1fr;
@@ -87,22 +132,39 @@
 	<main>
 		<h1>Product</h1>
 		<p id="status" role="status" hidden></p>
-		<img id="product-image" alt="Product" hidden>
+		<button id="image-trigger" type="button" aria-label="Open full-size product image" hidden>
+			<img id="product-image" alt="Product" hidden>
+		</button>
+		<p id="product-details" class="product-details" hidden></p>
 		<div class="actions" id="actions" hidden>
-			<button id="order-button" type="button">Order now</button>
+			<button id="order-button" type="button">Order now or More details</button>
 			<button id="share-button" type="button">Share</button>
 		</div>
 	</main>
+	<div id="image-modal" role="dialog" aria-modal="true" aria-label="Full-size product image" hidden>
+		<button id="close-modal" type="button" aria-label="Close full-size image">&times;</button>
+		<img id="modal-image" alt="Full-size product">
+	</div>
 
 	<script>
 		const params = new URLSearchParams(window.location.search);
 		const imageUrl = (params.get('img') || '').trim();
 		const orderUrl = (params.get('ama') || '').trim();
+		const productDetails = (params.get('details') || '').trim();
 		const image = document.querySelector('#product-image');
+		const imageTrigger = document.querySelector('#image-trigger');
+		const details = document.querySelector('#product-details');
 		const actions = document.querySelector('#actions');
 		const status = document.querySelector('#status');
 		const orderButton = document.querySelector('#order-button');
 		const shareButton = document.querySelector('#share-button');
+		const imageModal = document.querySelector('#image-modal');
+		const modalImage = document.querySelector('#modal-image');
+		const closeModalButton = document.querySelector('#close-modal');
+		if (productDetails) {
+			details.textContent = productDetails;
+			details.hidden = false;
+		}
 
 		function validHttpUrl(value) {
 			try {
@@ -116,8 +178,9 @@
 		if (validHttpUrl(imageUrl)) {
 			image.src = imageUrl;
 			image.hidden = false;
+			imageTrigger.hidden = false;
 			image.addEventListener('error', () => {
-				image.hidden = true;
+				imageTrigger.hidden = true;
 				status.textContent = 'The image URL in column A could not be loaded. Check that it points directly to an image file and is publicly accessible.';
 				status.hidden = false;
 			}, { once: true });
@@ -136,25 +199,55 @@
 			if (validHttpUrl(imageUrl)) actions.hidden = false;
 		}
 
+		imageTrigger.addEventListener('click', () => {
+			modalImage.src = imageUrl;
+			imageModal.hidden = false;
+			document.body.style.overflow = 'hidden';
+			closeModalButton.focus();
+		});
+
+		function closeModal() {
+			imageModal.hidden = true;
+			modalImage.removeAttribute('src');
+			document.body.style.overflow = '';
+			imageTrigger.focus();
+		}
+
+		closeModalButton.addEventListener('click', closeModal);
+		imageModal.addEventListener('click', (event) => {
+			if (event.target === imageModal) closeModal();
+		});
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape' && !imageModal.hidden) closeModal();
+		});
+
 		shareButton.addEventListener('click', async () => {
 			const shareUrl = new URL(window.location.href);
 			shareUrl.search = '';
 			shareUrl.searchParams.set('img', imageUrl);
 			if (validHttpUrl(orderUrl)) shareUrl.searchParams.set('ama', orderUrl);
+			if (productDetails) shareUrl.searchParams.set('details', productDetails);
+			const shareMessage = [
+				'YAN1 APP GEN 1',
+				'Found something interesting — have a look! ✨',
+				productDetails ? `🛒 ${productDetails}` : '',
+				shareUrl.toString(),
+				'THANKS 🙏'
+			].filter(Boolean).join('\n');
 
 			try {
 				if (navigator.share) {
-					await navigator.share({ title: 'Product', url: shareUrl.toString() });
+					await navigator.share({ text: shareMessage });
 				} else if (navigator.clipboard?.writeText) {
-					await navigator.clipboard.writeText(shareUrl.toString());
-					shareButton.textContent = 'Link copied';
+					await navigator.clipboard.writeText(shareMessage);
+					shareButton.textContent = 'Message copied';
 					window.setTimeout(() => { shareButton.textContent = 'Share'; }, 2000);
 				} else {
-					window.prompt('Copy this product link:', shareUrl.toString());
+					window.prompt('Copy this message to share:', shareMessage);
 				}
 			} catch (error) {
 				if (error.name !== 'AbortError') {
-					window.prompt('Copy this product link:', shareUrl.toString());
+					window.prompt('Copy this message to share:', shareMessage);
 				}
 			}
 		});

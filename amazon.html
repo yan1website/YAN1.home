@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Random Product</title>
+	<title>Products</title>
 	<style>
 		:root {
 			color-scheme: light;
@@ -88,6 +88,14 @@
 			padding: 0;
 			border: 0;
 			background: #f9f6ee;
+		}
+
+		.product-details {
+			margin: 0;
+			padding: 12px;
+			color: var(--accent-dark);
+			font: 700 18px/1.4 Arial, sans-serif;
+			white-space: pre-wrap;
 		}
 
 		.product-media {
@@ -195,7 +203,7 @@
 <body>
 	<main>
 		<p class="eyebrow">A little something to browse</p>
-		<h1>Random Product</h1>
+		<h1>Products</h1>
 		<form id="search-form" role="search">
 			<input id="search-input" type="search" placeholder="Search products" autocomplete="off">
 			<button type="submit">Search</button>
@@ -257,7 +265,7 @@
 			return result.table;
 		}
 
-		function addProduct(imageUrl, orderUrl) {
+		function addProduct(imageUrl, orderUrl, productDetails) {
 			const card = document.createElement('article');
 			card.className = 'product';
 
@@ -296,6 +304,10 @@
 			orderButton.addEventListener('click', () => {
 				window.open(orderUrl, '_blank', 'noopener,noreferrer');
 			});
+			const details = document.createElement('p');
+			details.className = 'product-details';
+			details.textContent = productDetails;
+			details.hidden = !productDetails;
 
 			const shareButton = document.createElement('button');
 			shareButton.type = 'button';
@@ -304,25 +316,33 @@
 				const shareUrl = new URL('https://yan1website.github.io/YAN1.home/amazon1.html');
 				shareUrl.searchParams.set('img', imageUrl);
 				shareUrl.searchParams.set('ama', orderUrl);
+				if (productDetails) shareUrl.searchParams.set('details', productDetails);
+				const shareMessage = [
+					'YAN1 APP GEN 1',
+					'Found something interesting — have a look! ✨',
+					productDetails ? `🛒 ${productDetails}` : '',
+					shareUrl.toString(),
+					'THANKS 🙏'
+				].filter(Boolean).join('\n');
 
 				try {
 					if (navigator.share) {
-						await navigator.share({ title: 'Product', url: shareUrl.toString() });
+						await navigator.share({ text: shareMessage });
 					} else if (navigator.clipboard?.writeText) {
-						await navigator.clipboard.writeText(shareUrl.toString());
-						shareButton.textContent = 'Link copied';
+						await navigator.clipboard.writeText(shareMessage);
+						shareButton.textContent = 'Message copied';
 						window.setTimeout(() => { shareButton.textContent = 'Share'; }, 2000);
 					} else {
-						window.prompt('Copy this product link:', shareUrl.toString());
+						window.prompt('Copy this message to share:', shareMessage);
 					}
 				} catch (error) {
 					if (error.name !== 'AbortError') {
-						window.prompt('Copy this product link:', shareUrl.toString());
+						window.prompt('Copy this message to share:', shareMessage);
 					}
 				}
 			});
 
-			card.append(media, orderButton, shareButton);
+			card.append(media, details, orderButton, shareButton);
 			products.appendChild(card);
 		}
 
@@ -343,15 +363,16 @@
 
 				const searchClause = searchTerm ? ` and lower(C) contains '${escapeQueryText(searchTerm.toLowerCase())}'` : '';
 				const selectedTable = await querySheet(
-					`select A, B where A is not null and B is not null${searchClause} limit ${PAGE_SIZE} offset ${offset}`
+					`select A, B, C where A is not null and B is not null${searchClause} limit ${PAGE_SIZE} offset ${offset}`
 				);
 
 				(selectedTable.rows || []).forEach((row) => {
 					const cells = row.c || [];
 					const imageUrl = String(cells[0]?.v || '').trim();
 					const orderUrl = String(cells[1]?.v || '').trim();
+					const productDetails = String(cells[2]?.v ?? '').trim();
 					if (/^https?:\/\//i.test(imageUrl) && /^https?:\/\//i.test(orderUrl)) {
-						addProduct(imageUrl, orderUrl);
+						addProduct(imageUrl, orderUrl, productDetails);
 					}
 				});
 
