@@ -20,15 +20,10 @@
 		header {
 			display: flex;
 			align-items: center;
-			justify-content: space-between;
+			justify-content: center;
 			gap: 1rem;
 			padding: 1rem 1.25rem;
 			background: #1f2937;
-		}
-
-		h1 {
-			margin: 0;
-			font-size: 1.1rem;
 		}
 
 		#status {
@@ -71,6 +66,7 @@
 
 		footer {
 			display: flex;
+			flex-direction: column;
 			align-items: center;
 			justify-content: center;
 			gap: 0.6rem;
@@ -88,9 +84,7 @@
 </head>
 <body>
 	<header>
-		<h1>Random Internet Archive Item</h1>
 		<p id="status" role="status">Choosing an item...</p>
-		<button id="randomButton" type="button">Show another</button>
 	</header>
 
 	<iframe id="archiveViewer" title="Internet Archive item" allowfullscreen></iframe>
@@ -100,6 +94,7 @@
 	</section>
 	<footer>
 		<button id="reviewButton" type="button" disabled>Review this item</button>
+		<button id="randomButton" type="button">Show another</button>
 		<button id="shareButton" type="button" aria-label="Share this item" title="Share this item" disabled>↗</button>
 	</footer>
 
@@ -225,18 +220,21 @@
 			const shareUrl = new URL('https://yan1website.github.io/YAN1.home/archive2.html');
 			shareUrl.searchParams.set('item', itemId);
 			const url = shareUrl.toString();
+			const itemTitle = document.querySelector('#itemTitle').textContent.trim();
+			const title = itemTitle && itemTitle !== 'Loading item details…' ? itemTitle : itemId;
+			const text = `YAN1 APP GEN 1\nYAN1 APP GEN 1\nFound something interesting — have a look! ✨\n▰▰▱ ${title}\nTHANKS 🙏`;
 
 			try {
 				if (navigator.share) {
-					await navigator.share({ title: 'Internet Archive item', url });
+					await navigator.share({ title, text, url });
 				} else if (navigator.clipboard?.writeText) {
-					await navigator.clipboard.writeText(url);
+					await navigator.clipboard.writeText(`${text}\n${url}`);
 					status.textContent = 'Share link copied.';
 				} else {
-					window.prompt('Copy this share link:', url);
+					window.prompt('Copy this share message and link:', `${text}\n${url}`);
 				}
 			} catch (error) {
-				if (error.name !== 'AbortError') window.prompt('Copy this share link:', url);
+				if (error.name !== 'AbortError') window.prompt('Copy this share message and link:', `${text}\n${url}`);
 			}
 		});
 		loadRandomItem();

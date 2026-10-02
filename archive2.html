@@ -98,17 +98,20 @@
 			const shareUrl = new URL('https://yan1website.github.io/YAN1.home/archive2.html');
 			shareUrl.searchParams.set('item', itemId);
 			const url = shareUrl.toString();
+			const itemTitle = document.querySelector('#itemTitle').textContent.trim();
+			const title = itemTitle && itemTitle !== 'Loading item details…' ? itemTitle : itemId;
+			const text = `YAN1 APP GEN 1\nYAN1 APP GEN 1\nFound something interesting — have a look! ✨\n▰▰▱ ${title}\nTHANKS 🙏`;
 			try {
 				if (navigator.share) {
-					await navigator.share({ title: 'Internet Archive item', url });
+					await navigator.share({ title, text, url });
 				} else if (navigator.clipboard?.writeText) {
-					await navigator.clipboard.writeText(url);
+					await navigator.clipboard.writeText(`${text}\n${url}`);
 					status.textContent = 'Share link copied.';
 				} else {
-					window.prompt('Copy this share link:', url);
+					window.prompt('Copy this share message and link:', `${text}\n${url}`);
 				}
 			} catch (error) {
-				if (error.name !== 'AbortError') window.prompt('Copy this share link:', url);
+				if (error.name !== 'AbortError') window.prompt('Copy this share message and link:', `${text}\n${url}`);
 			}
 		});
 	</script>
