@@ -244,8 +244,11 @@ async function shareVideo(videoId, title) {
     url.searchParams.set("txt", videoId);
 
 
+    const videoTitle = title || "Dailymotion video";
+    const text = `YAN1 APP GEN 1\nYAN1 APP GEN 1\nFound something interesting — have a look! ✨\n🎬 ${videoTitle}\nTHANKS 🙏`;
     const shareData = {
-        title: title || "Dailymotion video",
+        title: videoTitle,
+        text,
         url: url.href
     };
 
@@ -264,7 +267,7 @@ async function shareVideo(videoId, title) {
         ) {
 
             await navigator.clipboard.writeText(
-                url.href
+                `${text}\n${url.href}`
             );
 
             alert(
@@ -276,8 +279,8 @@ async function shareVideo(videoId, title) {
         else {
 
             window.prompt(
-                "Copy this permanent link:",
-                url.href
+                "Copy this share message and link:",
+                `${text}\n${url.href}`
             );
         }
 
@@ -288,8 +291,8 @@ async function shareVideo(videoId, title) {
         if (error.name !== "AbortError") {
 
             window.prompt(
-                "Copy this permanent link:",
-                url.href
+                "Copy this share message and link:",
+                `${text}\n${url.href}`
             );
         }
     }

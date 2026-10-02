@@ -10,10 +10,13 @@
 	main { width: min(100%, 960px); margin: 0 auto; padding: 1rem; box-sizing: border-box; }
 	#status { margin: 0 0 1rem; color: #cbd5e1; }
 	iframe { display: block; width: 100%; aspect-ratio: 16 / 9; height: auto; border: 0; background: #000; }
-	.videoActions { display: flex; justify-content: center; padding: 0.75rem; }
-	.shareLink { border: 0; border-radius: 0.35rem; padding: 0.65rem 0.9rem; background: #38bdf8; color: #082f49; cursor: pointer; font-size: 1.35rem; font-weight: 700; }
-	.shareLink:focus-visible { outline: 3px solid white; outline-offset: 3px; }
+	.videoActions { display: flex; justify-content: center; gap: 0.6rem; padding: 0.75rem; }
+	.shareLink, .fullscreenButton { border: 0; border-radius: 0.35rem; padding: 0.65rem 0.9rem; cursor: pointer; font-size: 1.35rem; font-weight: 700; }
+	.shareLink { background: #38bdf8; color: #082f49; }
+	.fullscreenButton { background: #374151; color: #f9fafb; }
+	.shareLink:focus-visible, .fullscreenButton:focus-visible { outline: 3px solid white; outline-offset: 3px; }
 	#videoViewer { overflow: hidden; border-radius: 0.5rem; }
+	iframe:fullscreen { width: 100vw; height: 100vh; aspect-ratio: auto; }
 	@media (max-width: 42rem) { main { padding: 0; } #status { padding: 1rem 1rem 0; } }
 	</style>
 	<script src="app-launch.js" defer></script>
@@ -28,27 +31,38 @@
 		const status = document.querySelector('#status');
 		const viewer = document.querySelector('#videoViewer');
 
-		async function shareVideo() {
+		async function shareVideo(title) {
 			const url = new URL('https://yan1website.github.io/YAN1.home/dailymotion2.html');
 			url.searchParams.set('txt', videoId);
+			const text = `YAN1 APP GEN 1\nYAN1 APP GEN 1\nFound something interesting — have a look! ✨\n🎬 ${title}\nTHANKS 🙏`;
 			try {
 				if (navigator.share) {
-					await navigator.share({ title: 'Dailymotion video', url: url.href });
+					await navigator.share({ title, text, url: url.href });
 				} else if (navigator.clipboard && window.isSecureContext) {
-					await navigator.clipboard.writeText(url.href);
+					await navigator.clipboard.writeText(`${text}\n${url.href}`);
 					alert('Permanent link copied. You can paste it into any app.');
 				} else {
-					window.prompt('Copy this permanent link:', url.href);
+					window.prompt('Copy this share message and link:', `${text}\n${url.href}`);
 				}
 			} catch (error) {
-				if (error.name !== 'AbortError') window.prompt('Copy this permanent link:', url.href);
+				if (error.name !== 'AbortError') window.prompt('Copy this share message and link:', `${text}\n${url.href}`);
+			}
+		}
+
+		async function getVideoTitle() {
+			try {
+				const response = await fetch(`https://api.dailymotion.com/video/${encodeURIComponent(videoId)}?fields=title`);
+				if (!response.ok) throw new Error('Video title request failed');
+				const data = await response.json();
+				return String(data.title || videoId);
+			} catch {
+				return videoId;
 			}
 		}
 
 		if (!videoId || /[\s/]/.test(videoId)) {
 			status.textContent = 'This link does not contain a valid Dailymotion video ID.';
 		} else {
-			const videoUrl = `https://www.dailymotion.com/video/${encodeURIComponent(videoId)}`;
 			const player = document.createElement('iframe');
 			player.title = 'Dailymotion video';
 			player.allow = 'autoplay; fullscreen; picture-in-picture; web-share';
@@ -57,27 +71,36 @@
 			player.src = `https://geo.dailymotion.com/player/x1k7p.html?video=${encodeURIComponent(videoId)}&controls=1&autoplay=1&mute=1`;
 			viewer.append(player);
 
-			const openButton = document.createElement('button');
-			openButton.type = 'button';
-			openButton.className = 'shareLink';
-			openButton.textContent = 'Open video on Dailymotion';
-			openButton.setAttribute('aria-label', 'Open video on Dailymotion');
-			openButton.addEventListener('click', () => {
-				window.open(videoUrl, '_blank', 'noopener,noreferrer');
-			});
-
 			const shareButton = document.createElement('button');
 			shareButton.type = 'button';
 			shareButton.className = 'shareLink';
 			shareButton.textContent = 'ᯓ➤';
 			shareButton.setAttribute('aria-label', 'Share this video');
-			shareButton.addEventListener('click', shareVideo);
+			shareButton.disabled = true;
+			let videoTitle = videoId;
+			shareButton.addEventListener('click', () => shareVideo(videoTitle));
+
+			const fullscreenButton = document.createElement('button');
+			fullscreenButton.type = 'button';
+			fullscreenButton.className = 'fullscreenButton';
+			fullscreenButton.textContent = '⛶';
+			fullscreenButton.setAttribute('aria-label', 'Play video in fullscreen');
+			fullscreenButton.title = 'Play video in fullscreen';
+			fullscreenButton.addEventListener('click', () => {
+				if (player.requestFullscreen) {
+					player.requestFullscreen().catch(error => console.error('Unable to enter fullscreen:', error));
+				}
+			});
 
 			const actions = document.createElement('div');
 			actions.className = 'videoActions';
-			actions.append(openButton, shareButton);
+			actions.append(shareButton, fullscreenButton);
 			viewer.append(actions);
 			status.textContent = `Playing ${videoId}`;
+			getVideoTitle().then(title => {
+				videoTitle = title;
+				shareButton.disabled = false;
+			});
 		}
 	</script>
 </body>
