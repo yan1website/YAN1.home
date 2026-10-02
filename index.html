@@ -43,13 +43,7 @@
     const status = document.querySelector('#status');
     const sentinel = document.querySelector('#sentinel');
     const message = document.querySelector('#message');
-    const stateKey = 'yan1_home_state';
-    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     let remaining = [];
-    let restoreFiles = [];
-    let savedScrollY = 0;
-    let isRestoring = false;
-    let stateSaveScheduled = false;
     let pendingSection = null;
     const savedMedia = new WeakMap();
     const savedAnimations = new WeakMap();
@@ -202,37 +196,14 @@
       } catch (_) {}
     }
 
-    function savePageState() {
-      if (!window.pageFiles) return;
-      try {
-        const renderedFiles = [...pages.querySelectorAll('.page')]
-          .map(section => section.dataset.filename)
-          .filter(Boolean);
-        localStorage.setItem(stateKey, JSON.stringify({
-          scrollY: window.scrollY,
-          renderedFiles,
-          remaining
-        }));
-      } catch (_) {}
-    }
-
-    function schedulePageStateSave() {
-      if (stateSaveScheduled) return;
-      stateSaveScheduled = true;
-      requestAnimationFrame(() => {
-        stateSaveScheduled = false;
-        savePageState();
-      });
-    }
-
     function appendNext() {
       if (!window.pageFiles) return;
       if (pendingSection) return;
-      if (!restoreFiles.length && !remaining.length) {
+      if (!remaining.length) {
         // Start another shuffled pass once every listed page has appeared.
         remaining = shuffle([...window.pageFiles]);
       }
-      const filename = restoreFiles.length ? restoreFiles.shift() : remaining.shift();
+      const filename = remaining.shift();
       if (!filename) return;
       status.textContent = `Showing: ${filename}`;
 
@@ -289,7 +260,6 @@
       fullscreenButton.setAttribute('aria-label', `Open ${filename} in a new tab`);
       fullscreenButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3 11 13"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>';
       fullscreenButton.addEventListener('click', () => {
-        savePageState();
         window.open(shareUrl, '_blank', 'noopener,noreferrer');
       });
       actions.append(reloadButton, shareButton, fullscreenButton);
@@ -323,7 +293,6 @@
       const bounds = section.getBoundingClientRect();
       if (bounds.bottom > 0 && bounds.top < window.innerHeight) activateFrame(frame);
       else pendingSection = section;
-      if (!isRestoring) schedulePageStateSave();
     }
 
     function updateVisiblePages() {
@@ -341,15 +310,11 @@
 
     window.addEventListener('scroll', () => {
       updateVisiblePages();
-      schedulePageStateSave();
     }, { passive: true });
-    window.addEventListener('pagehide', savePageState);
-    window.addEventListener('blur', savePageState);
     window.addEventListener('resize', updateVisiblePages);
     window.addEventListener('blur', updateVisiblePages);
     window.addEventListener('focus', updateVisiblePages);
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') savePageState();
       updateVisiblePages();
     });
     document.addEventListener('fullscreenchange', updateVisiblePages);
@@ -363,35 +328,8 @@
           throw new Error('list.json must contain an array of HTML filenames in this folder.');
         }
         window.pageFiles = [...new Set(files)];
-        const validFiles = new Set(window.pageFiles);
-        let savedState = null;
-        try {
-          savedState = JSON.parse(localStorage.getItem(stateKey) || 'null');
-        } catch (_) {}
-        const canRestore = savedState
-          && Number.isFinite(savedState.scrollY)
-          && Array.isArray(savedState.renderedFiles)
-          && Array.isArray(savedState.remaining)
-          && [...savedState.renderedFiles, ...savedState.remaining].every(filename => validFiles.has(filename));
-
-        if (canRestore) {
-          restoreFiles = [...savedState.renderedFiles];
-          remaining = [...savedState.remaining];
-          savedScrollY = Math.max(0, savedState.scrollY);
-          isRestoring = true;
-          while (restoreFiles.length) {
-            pendingSection = null;
-            appendNext();
-          }
-          isRestoring = false;
-          document.documentElement.style.scrollBehavior = 'auto';
-          window.scrollTo(0, savedScrollY);
-          document.documentElement.style.scrollBehavior = '';
-          savePageState();
-        } else {
-          remaining = shuffle([...window.pageFiles]);
-          appendNext();
-        }
+        remaining = shuffle([...window.pageFiles]);
+        appendNext();
         updateVisiblePages();
       } catch (error) {
         message.textContent = `${error.message} Open this site through a local web server so the browser can fetch the JSON file.`;
