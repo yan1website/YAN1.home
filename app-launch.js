@@ -4,6 +4,7 @@
 
   const pageURL = new URL(window.location.href);
   if (pageURL.protocol !== 'http:' && pageURL.protocol !== 'https:') return;
+  if (pageURL.hostname === '127.0.0.1' || pageURL.hostname === 'localhost') return;
 
   const pageKey = `yan1_launched:${pageURL.pathname}${pageURL.search}`;
   try {

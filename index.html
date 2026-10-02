@@ -43,7 +43,13 @@
     const status = document.querySelector('#status');
     const sentinel = document.querySelector('#sentinel');
     const message = document.querySelector('#message');
+    const stateKey = 'yan1_home_state';
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     let remaining = [];
+    let restoreFiles = [];
+    let savedScrollY = 0;
+    let isRestoring = false;
+    let stateSaveScheduled = false;
     let pendingSection = null;
     const savedMedia = new WeakMap();
     const savedAnimations = new WeakMap();
@@ -196,18 +202,43 @@
       } catch (_) {}
     }
 
+    function savePageState() {
+      if (!window.pageFiles) return;
+      try {
+        const renderedFiles = [...pages.querySelectorAll('.page')]
+          .map(section => section.dataset.filename)
+          .filter(Boolean);
+        localStorage.setItem(stateKey, JSON.stringify({
+          scrollY: window.scrollY,
+          renderedFiles,
+          remaining
+        }));
+      } catch (_) {}
+    }
+
+    function schedulePageStateSave() {
+      if (stateSaveScheduled) return;
+      stateSaveScheduled = true;
+      requestAnimationFrame(() => {
+        stateSaveScheduled = false;
+        savePageState();
+      });
+    }
+
     function appendNext() {
+      if (!window.pageFiles) return;
       if (pendingSection) return;
-      if (!remaining.length) {
+      if (!restoreFiles.length && !remaining.length) {
         // Start another shuffled pass once every listed page has appeared.
         remaining = shuffle([...window.pageFiles]);
       }
-      const filename = remaining.shift();
+      const filename = restoreFiles.length ? restoreFiles.shift() : remaining.shift();
       if (!filename) return;
       status.textContent = `Showing: ${filename}`;
 
       const section = document.createElement('section');
       section.className = 'page';
+      section.dataset.filename = filename;
       section.style.setProperty('--divider-color', `hsl(${(pages.children.length * 137.508) % 360} 82% 62%)`);
       const label = document.createElement('div');
       label.className = 'page-label';
@@ -229,6 +260,7 @@
         frame.src = new URL(filename, document.baseURI).href;
       });
 
+      const shareUrl = `https://yan1website.github.io/YAN1.home/${encodeURIComponent(filename)}`;
       const shareButton = document.createElement('button');
       shareButton.className = 'page-action';
       shareButton.type = 'button';
@@ -236,7 +268,6 @@
       shareButton.setAttribute('aria-label', `Share ${filename}`);
       shareButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/></svg>';
       shareButton.addEventListener('click', async () => {
-        const shareUrl = `https://yan1website.github.io/YAN1.home/${encodeURIComponent(filename)}`;
         try {
           if (window.Android && typeof window.Android.shareText === 'function') {
             window.Android.shareText(shareUrl);
@@ -254,16 +285,12 @@
       const fullscreenButton = document.createElement('button');
       fullscreenButton.className = 'fullscreen-button';
       fullscreenButton.type = 'button';
-      fullscreenButton.title = `View ${filename} full screen`;
-      fullscreenButton.setAttribute('aria-label', `View ${filename} full screen`);
-      fullscreenButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>';
-      fullscreenButton.addEventListener('click', async () => {
-        try {
-          if (document.fullscreenElement === section) await document.exitFullscreen();
-          else await section.requestFullscreen();
-        } catch (_) {
-          status.textContent = 'Full screen is unavailable in this browser.';
-        }
+      fullscreenButton.title = `Open ${filename} in a new tab`;
+      fullscreenButton.setAttribute('aria-label', `Open ${filename} in a new tab`);
+      fullscreenButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3 11 13"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>';
+      fullscreenButton.addEventListener('click', () => {
+        savePageState();
+        window.open(shareUrl, '_blank', 'noopener,noreferrer');
       });
       actions.append(reloadButton, shareButton, fullscreenButton);
       label.append(pageName, actions);
@@ -296,6 +323,7 @@
       const bounds = section.getBoundingClientRect();
       if (bounds.bottom > 0 && bounds.top < window.innerHeight) activateFrame(frame);
       else pendingSection = section;
+      if (!isRestoring) schedulePageStateSave();
     }
 
     function updateVisiblePages() {
@@ -311,11 +339,19 @@
       if (!pendingSection && sentinel.getBoundingClientRect().top < window.innerHeight + 900) appendNext();
     }
 
-    window.addEventListener('scroll', updateVisiblePages, { passive: true });
+    window.addEventListener('scroll', () => {
+      updateVisiblePages();
+      schedulePageStateSave();
+    }, { passive: true });
+    window.addEventListener('pagehide', savePageState);
+    window.addEventListener('blur', savePageState);
     window.addEventListener('resize', updateVisiblePages);
     window.addEventListener('blur', updateVisiblePages);
     window.addEventListener('focus', updateVisiblePages);
-    document.addEventListener('visibilitychange', updateVisiblePages);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') savePageState();
+      updateVisiblePages();
+    });
     document.addEventListener('fullscreenchange', updateVisiblePages);
 
     async function start() {
@@ -327,8 +363,35 @@
           throw new Error('list.json must contain an array of HTML filenames in this folder.');
         }
         window.pageFiles = [...new Set(files)];
-        remaining = shuffle([...window.pageFiles]);
-        appendNext();
+        const validFiles = new Set(window.pageFiles);
+        let savedState = null;
+        try {
+          savedState = JSON.parse(localStorage.getItem(stateKey) || 'null');
+        } catch (_) {}
+        const canRestore = savedState
+          && Number.isFinite(savedState.scrollY)
+          && Array.isArray(savedState.renderedFiles)
+          && Array.isArray(savedState.remaining)
+          && [...savedState.renderedFiles, ...savedState.remaining].every(filename => validFiles.has(filename));
+
+        if (canRestore) {
+          restoreFiles = [...savedState.renderedFiles];
+          remaining = [...savedState.remaining];
+          savedScrollY = Math.max(0, savedState.scrollY);
+          isRestoring = true;
+          while (restoreFiles.length) {
+            pendingSection = null;
+            appendNext();
+          }
+          isRestoring = false;
+          document.documentElement.style.scrollBehavior = 'auto';
+          window.scrollTo(0, savedScrollY);
+          document.documentElement.style.scrollBehavior = '';
+          savePageState();
+        } else {
+          remaining = shuffle([...window.pageFiles]);
+          appendNext();
+        }
         updateVisiblePages();
       } catch (error) {
         message.textContent = `${error.message} Open this site through a local web server so the browser can fetch the JSON file.`;

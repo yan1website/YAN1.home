@@ -61,42 +61,6 @@
 			background: #000;
 		}
 
-		.videoThumbnail {
-			position: relative;
-			width: 100%;
-			aspect-ratio: 16 / 9;
-			cursor: pointer;
-			overflow: hidden;
-			background: #000;
-		}
-
-		.videoThumbnail img {
-			display: block;
-			width: 100%;
-			height: 100%;
-			object-fit: cover;
-		}
-
-		.playButton {
-			position: absolute;
-			top: 50%;
-			left: 50%;
-			transform: translate(-50%, -50%);
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			width: 70px;
-			height: 70px;
-			border-radius: 50%;
-			background: rgba(0, 0, 0, 0.75);
-			color: white;
-			font-size: 30px;
-		}
-
-		.videoThumbnail:hover .playButton {
-			background: rgba(0, 0, 0, 0.9);
-		}
-
 		.videoActions { display: flex; justify-content: center; padding: 0.75rem; }
 		.shareLink { border: 0; border-radius: 0.35rem; padding: 0.65rem 0.9rem; background: #38bdf8; color: #082f49; cursor: pointer; font-size: 1.35rem; font-weight: 700; }
 
@@ -169,13 +133,14 @@
 			return videoId;
 		}
 
-		function playDailymotion(videoId) {
+		function createDailymotionPlayer(videoId) {
 			const iframe = document.createElement('iframe');
 			iframe.title = 'Dailymotion video';
-			iframe.allow = 'autoplay; fullscreen; picture-in-picture';
+			iframe.allow = 'autoplay; fullscreen; picture-in-picture; web-share';
 			iframe.allowFullscreen = true;
-			iframe.src = `https://www.dailymotion.com/embed/video/${encodeURIComponent(videoId)}`;
-			document.querySelector('#videoViewer').replaceChildren(iframe);
+			iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+			iframe.src = `https://geo.dailymotion.com/player/x1k7p.html?video=${encodeURIComponent(videoId)}&controls=1&autoplay=1&mute=1`;
+			return iframe;
 		}
 
 		async function shareVideo(videoId) {
@@ -204,36 +169,7 @@
 
 			try {
 				const videoId = await getRandomVideoId();
-				const response = await fetch(
-					`https://api.dailymotion.com/video/${encodeURIComponent(videoId)}?fields=id,thumbnail_url`
-				);
-				if (!response.ok) {
-					throw new Error(`Dailymotion thumbnail request failed (${response.status})`);
-				}
-				const video = await response.json();
-				const thumbnail = document.createElement('div');
-				thumbnail.className = 'videoThumbnail';
-				thumbnail.setAttribute('role', 'button');
-				thumbnail.setAttribute('tabindex', '0');
-				thumbnail.setAttribute('aria-label', 'Play Dailymotion video');
-				thumbnail.addEventListener('click', () => playDailymotion(videoId));
-				thumbnail.addEventListener('keydown', event => {
-					if (event.key === 'Enter' || event.key === ' ') {
-						event.preventDefault();
-						playDailymotion(videoId);
-					}
-				});
-
-				const image = document.createElement('img');
-				image.src = video.thumbnail_url;
-				image.alt = 'Dailymotion video thumbnail';
-				image.loading = 'lazy';
-				thumbnail.append(image);
-
-				const playButton = document.createElement('span');
-				playButton.className = 'playButton';
-				playButton.textContent = '▶';
-				thumbnail.append(playButton);
+				const player = createDailymotionPlayer(videoId);
 				const shareButton = document.createElement('button');
 				shareButton.type = 'button';
 				shareButton.className = 'shareLink';
@@ -243,7 +179,7 @@
 				const actions = document.createElement('div');
 				actions.className = 'videoActions';
 				actions.append(shareButton);
-				viewer.replaceChildren(thumbnail, actions);
+				viewer.replaceChildren(player, actions);
 				status.textContent = `Showing ${videoId}`;
 			} catch (error) {
 				viewer.replaceChildren();
