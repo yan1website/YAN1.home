@@ -19,6 +19,8 @@
 		.file-entry { min-width: 0; }
 		.file-title { margin: 0 0 12px; color: #fff; font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; }
 		.file-preview { display: block; width: 100%; max-width: 100%; height: 100vh; height: 100svh; min-height: 600px; border: 0; border-radius: 8px; background: #000; }
+		.file-preview.pdf-preview { height: 55vh; height: 55svh; min-height: 360px; max-height: 560px; }
+		.video-preview { display: block; width: 100%; max-height: 600px; aspect-ratio: 16 / 9; border-radius: 8px; background: #000; object-fit: contain; }
 		.share-actions { display: flex; justify-content: center; margin-top: 16px; }
 		.share-button { min-height: 44px; padding: 10px 20px; border: 0; border-radius: 7px; background: #fff; color: #111; font: inherit; cursor: pointer; }
 		.share-button:hover { background: #ddd; }
@@ -113,6 +115,8 @@
 			if (!linkValue) return;
 			const fileUrl = makeFileUrl(linkValue);
 			const isPdf = /\.pdf$/i.test(fileUrl.pathname) || noteValue.replace(/^\./, '').toLowerCase() === 'pdf';
+			const isVideo = !isPdf && (/\.(?:mp4|m4v|mov|webm|ogv|avi|mkv|3gp|mpeg|mpg)$/i.test(fileUrl.pathname)
+				|| /^\s*\.?(?:mp4|m4v|mov|webm|ogv|avi|mkv|3gp|mpeg|mpg)\s*$/i.test(noteValue));
 			const viewerUrl = isPdf
 				? `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl.href)}&embedded=true`
 				: fileUrl.href;
@@ -127,13 +131,47 @@
 				entry.appendChild(title);
 			}
 
-			const preview = document.createElement('iframe');
-			preview.className = 'file-preview';
-			preview.title = noteValue ? `${noteValue} preview` : `File ${rowNumber} preview`;
-			preview.referrerPolicy = 'no-referrer';
-			preview.loading = 'lazy';
-			preview.src = viewerUrl;
-			entry.appendChild(preview);
+			if (isVideo) {
+				const preview = document.createElement('video');
+				preview.className = 'video-preview';
+				preview.controls = false;
+				preview.autoplay = false;
+				preview.preload = 'metadata';
+				preview.playsInline = true;
+				preview.setAttribute('aria-label', noteValue ? `${noteValue} video` : `Video ${rowNumber}`);
+				preview.addEventListener('loadedmetadata', () => {
+					if (preview.duration > 0) preview.currentTime = Math.min(0.1, preview.duration / 2);
+				}, { once: true });
+				preview.addEventListener('click', () => {
+					preview.controls = true;
+					if (preview.paused) {
+						preview.play().catch(error => {
+							const message = document.createElement('p');
+							message.className = 'status error';
+							message.textContent = `Unable to play video: ${error.message}`;
+							preview.insertAdjacentElement('afterend', message);
+						});
+					} else {
+						preview.pause();
+					}
+				});
+				preview.src = fileUrl.href;
+				preview.addEventListener('error', () => {
+					const error = document.createElement('p');
+					error.className = 'status error';
+					error.textContent = `Unable to load video: ${noteValue || `file ${rowNumber}`}.`;
+					preview.replaceWith(error);
+				}, { once: true });
+				entry.appendChild(preview);
+			} else {
+				const preview = document.createElement('iframe');
+				preview.className = isPdf ? 'file-preview pdf-preview' : 'file-preview';
+				preview.title = noteValue ? `${noteValue} preview` : `File ${rowNumber} preview`;
+				preview.referrerPolicy = 'no-referrer';
+				preview.loading = 'lazy';
+				preview.src = viewerUrl;
+				entry.appendChild(preview);
+			}
 
 			const actions = document.createElement('div');
 			actions.className = 'share-actions';

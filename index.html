@@ -9,8 +9,14 @@
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body { margin: 0; color: #f8fafc; background: #111827; font-family: system-ui, sans-serif; }
-    header { position: sticky; top: 0; z-index: 2; padding: 12px 18px; color: #e5e7eb; background: rgb(17 24 39 / 92%); border-bottom: 1px solid #374151; backdrop-filter: blur(8px); }
-    header p { max-width: 1100px; margin: 0 auto; font-size: 14px; }
+    header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 18px; color: #e5e7eb; background: rgb(17 24 39 / 92%); border-bottom: 1px solid #374151; backdrop-filter: blur(8px); transition: padding 180ms ease, transform 180ms ease; }
+    header.hidden { transform: translateY(-110%); }
+    header.compact { padding-top: 5px; padding-bottom: 5px; }
+    .quick-links { display: flex; gap: 8px; }
+    .quick-link { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid #6b7280; border-radius: 9px; color: #f9fafb; background: #374151; font-size: 24px; line-height: 1; text-decoration: none; transition: width 180ms ease, height 180ms ease, font-size 180ms ease; }
+    .quick-link:hover, .quick-link:focus-visible { background: #4b5563; outline: 2px solid #93c5fd; outline-offset: 2px; }
+    header.compact .quick-link { width: 34px; height: 34px; font-size: 19px; }
+    header p { min-width: 0; max-width: 1100px; margin: 0; overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
     #pages { width: 100%; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
     .page { display: grid; grid-template-rows: 54px minmax(0, 1fr); width: 100%; height: min(92vh, 1100px); min-height: 680px; min-width: 0; overflow: hidden; background: white; border: 0; border-radius: 0; box-shadow: none; }
     .page + .page { border-top: 3px solid var(--divider-color, #38bdf8); }
@@ -33,7 +39,13 @@
   <script src="app-launch.js" defer></script>
 </head>
 <body>
-  <header><p id="status">Picking a page to start…</p></header>
+  <header id="site-header">
+    <nav class="quick-links" aria-label="Quick links">
+      <a class="quick-link" href="https://yan1website.github.io/YAN1.home/profile/index.html" target="_blank" rel="noopener noreferrer" aria-label="Open profile" title="Profile">🪪</a>
+      <a class="quick-link" href="https://yan1website.github.io/YAN1.home/search/index.html" target="_blank" rel="noopener noreferrer" aria-label="Open search" title="Search">🔎</a>
+    </nav>
+    <p id="status">Picking a page to start…</p>
+  </header>
   <main id="pages" aria-live="polite"></main>
   <div id="sentinel" aria-hidden="true">Loading more pages as you scroll…</div>
   <div id="message" role="status"></div>
@@ -41,10 +53,12 @@
   <script>
     const pages = document.querySelector('#pages');
     const status = document.querySelector('#status');
+    const siteHeader = document.querySelector('#site-header');
     const sentinel = document.querySelector('#sentinel');
     const message = document.querySelector('#message');
     let remaining = [];
     let pendingSection = null;
+    let lastScrollY = window.scrollY;
     const savedMedia = new WeakMap();
     const savedAnimations = new WeakMap();
     const mediaWatchers = new WeakMap();
@@ -393,6 +407,18 @@
     }
 
     window.addEventListener('scroll', () => {
+      const currentScrollY = window.scrollY;
+      const scrollDelta = currentScrollY - lastScrollY;
+      if (currentScrollY <= 24) {
+        siteHeader.classList.remove('hidden', 'compact');
+      } else if (scrollDelta > 6) {
+        siteHeader.classList.add('hidden');
+        siteHeader.classList.remove('compact');
+      } else if (scrollDelta < -6) {
+        siteHeader.classList.remove('hidden');
+        siteHeader.classList.add('compact');
+      }
+      lastScrollY = currentScrollY;
       updateVisiblePages();
     }, { passive: true });
     window.addEventListener('resize', updateVisiblePages);
