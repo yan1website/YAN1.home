@@ -4,19 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#10131d">
-  <title>Sayora — Sheet Gallery</title>
+  <title>Sayora</title>
   <style>
     * { box-sizing: border-box; }
     :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
     body { min-height: 100vh; margin: 0; padding: 32px 16px 48px; color: #f7f5ff; background: radial-gradient(ellipse at 50% -15%, #46306e 0, #191827 42%, #10131d 78%); }
     main { width: min(100%, 900px); margin: 0 auto; }
-    .brand { color: #c6a8ff; font-size: 12px; font-weight: 750; letter-spacing: .2em; text-transform: uppercase; }
-    h1 { margin: 10px 0 8px; font-size: clamp(30px, 6vw, 44px); letter-spacing: -.045em; }
-    .intro { margin: 0 0 24px; color: #aaa7ba; line-height: 1.6; }
+    .top-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+    #searchForm { display: flex; flex: 1; min-width: 0; gap: 8px; margin: 0; }
+    #searchInput { flex: 1; min-width: 0; min-height: 46px; padding: 10px 12px; border: 1px solid #555; border-radius: 6px; color: #fff; background: #1b1b1b; font: inherit; }
+    #searchForm button { min-height: 46px; padding: 10px 18px; border: 0; border-radius: 6px; color: #111; background: #fff; font: inherit; cursor: pointer; }
+    #searchForm button:hover { background: #ddd; }
+    .upload-link { display: inline-flex; flex: 0 0 auto; min-height: 46px; align-items: center; justify-content: center; padding: 0 14px; border: 1px solid #71608e; border-radius: 6px; color: #f7f5ff; background: #29243a; font-weight: 650; text-decoration: none; }
+    .upload-link:hover { background: #38304c; }
     #status { min-height: 1.5em; margin: 0 0 16px; color: #d7d1e3; font-size: 14px; }
     #status.error { color: #ffc4c4; }
     #entries { display: grid; gap: 16px; }
-    .entry { padding: clamp(16px, 3vw, 24px); border: 1px solid #343044; border-radius: 16px; background: rgb(25 24 39 / 92%); box-shadow: 0 14px 40px #08081045; }
+    .entry { padding: clamp(16px, 3vw, 24px); border: 1px solid var(--grid-accent, #343044); border-radius: 16px; background: rgb(25 24 39 / 92%); box-shadow: 0 14px 40px #08081045; }
+    .entry[data-action="comment"], #commentPanel[data-mode="comment"] { border-color: #facc15; box-shadow: 0 0 0 2px #facc1555, 0 14px 40px #08081045; }
+    .entry[data-action="view"], #commentPanel[data-mode="view"] { border-color: #4ade80; box-shadow: 0 0 0 2px #4ade8055, 0 14px 40px #08081045; }
     .entry-title { margin: 0 0 12px; color: #c6a8ff; font-size: 14px; }
     .field { padding: 12px 0; border-top: 1px solid #39364b; overflow-wrap: anywhere; }
     .field-name { display: block; margin-bottom: 5px; color: #bba2e8; font-size: 12px; font-weight: 700; }
@@ -34,17 +40,22 @@
     @media (max-width: 480px) { body { padding: 24px 12px 40px; } .entry { border-radius: 13px; } }
   </style>
   <script src="app-launch.js" defer></script>
+  <script src="sayora-image-viewer.js" defer></script>
 </head>
 <body>
   <main>
-    <div class="brand">Sayora</div>
-    <h1>Sheet gallery</h1>
-    <p class="intro">Browse entries from the public sheet. More rows load automatically as you reach the bottom.</p>
+    <div class="top-bar">
+      <form id="searchForm" role="search">
+        <input id="searchInput" type="search" placeholder="Search column B" aria-label="Search column B" autocomplete="off">
+        <button type="submit">Search</button>
+      </form>
+      <a class="upload-link" href="sayora.html">Upload</a>
+    </div>
     <p id="status" role="status" aria-live="polite">Loading the first entries…</p>
     <section id="entries" aria-label="Spreadsheet entries"></section>
+    <section id="commentPanel" aria-label="Entry comments and comment form"><iframe title="Comments or comment form" loading="lazy"></iframe></section>
     <div id="sentinel" aria-hidden="true"></div>
     <p id="endMessage">You’ve reached the end of the sheet.</p>
-    <section id="commentPanel" aria-label="Entry comments and comment form"><iframe title="Comments or comment form" loading="lazy"></iframe></section>
   </main>
   <script>
     const SPREADSHEET_ID = '1GafYJhhoZRuQG7SRJKxfJAa55hoJ6gT2QF-9_dK2Gu0';
@@ -55,10 +66,15 @@
     const sentinel = document.querySelector('#sentinel');
     const endMessage = document.querySelector('#endMessage');
     const commentPanel = document.querySelector('#commentPanel');
+    const searchForm = document.querySelector('#searchForm');
+    const searchInput = document.querySelector('#searchInput');
+    let activeEntry = null;
     let headers = [];
     let offset = 0;
     let exhausted = false;
     let loading = false;
+    let searchTerm = '';
+    let requestVersion = 0;
 
     function sheetQueryUrl(query) {
       const params = new URLSearchParams({ sheet: SHEET_NAME, tqx: 'out:json', tq: query });
@@ -79,6 +95,10 @@
 
     function valueOf(cell) {
       return cell ? String(cell.f ?? cell.v ?? '').trim() : '';
+    }
+
+    function escapeQueryValue(value) {
+      return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     }
 
     function appendValue(container, value) {
@@ -125,46 +145,61 @@
       return '';
     }
 
-    function openComment(imageUrl) {
+    function openComment(imageUrl, entry) {
       if (!imageUrl) return;
       const url = new URL('sayora3.html', window.location.href);
       url.searchParams.set('To', imageUrl);
-      showPanel(url.href);
+      showPanel(url.href, entry, 'comment');
     }
 
-    function openComments(imageUrl) {
+    function openComments(imageUrl, entry) {
       if (!imageUrl) return;
       const url = new URL('sayora4.html', window.location.href);
       url.searchParams.set('To', imageUrl);
-      showPanel(url.href);
+      showPanel(url.href, entry, 'view');
     }
 
     async function shareImage(imageUrl) {
       const link = new URL('https://yan1website.github.io/YAN1.home/sayora5.html');
       link.searchParams.set('txt', imageUrl.replace(/^https:\/\//i, ''));
+      const shareTitle = 'YAN1 APP GEN 1';
+      const shareText = [
+        'YAN1 APP GEN 1',
+        'YAN1 APP GEN 1',
+        'Found something interesting — have a look! ✨',
+        '🎭',
+        'THANKS 🙏'
+      ].join('\n');
+      const fullMessage = `${shareText}\n${link.href}`;
       try {
         if (navigator.share) {
-          await navigator.share({ title: 'Sayora image', url: link.href });
+          await navigator.share({ title: shareTitle, text: shareText, url: link.href });
         } else if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(link.href);
-          alert('Permanent link copied. You can share it in any app.');
+          await navigator.clipboard.writeText(fullMessage);
+          alert('Share message copied. You can share it in any app.');
         } else {
-          window.prompt('Copy this permanent link to share:', link.href);
+          window.prompt('Copy this message to share:', fullMessage);
         }
       } catch (error) {
-        if (error.name !== 'AbortError') window.prompt('Copy this permanent link to share:', link.href);
+        if (error.name !== 'AbortError') window.prompt('Copy this message to share:', fullMessage);
       }
     }
 
-    function showPanel(url) {
+    function showPanel(url, entry, mode) {
+      if (entry?.isConnected) entry.after(commentPanel);
+      if (activeEntry && activeEntry !== entry) activeEntry.removeAttribute('data-action');
+      activeEntry = entry;
+      if (entry) entry.dataset.action = mode;
+      commentPanel.dataset.mode = mode;
       commentPanel.querySelector('iframe').src = url;
       commentPanel.style.display = 'block';
-      commentPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      commentPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function renderRow(row, rowNumber) {
       const card = document.createElement('article');
       card.className = 'entry';
+      card.style.setProperty('--grid-accent', `hsl(${(rowNumber * 137.508) % 360} 78% 68%)`);
       const title = document.createElement('h2');
       title.className = 'entry-title';
       title.textContent = `Entry ${rowNumber}`;
@@ -192,14 +227,14 @@
         commentButton.type = 'button';
         commentButton.className = 'comment-button';
         commentButton.textContent = 'Comment';
-        commentButton.addEventListener('click', () => openComment(imageUrl));
+        commentButton.addEventListener('click', () => openComment(imageUrl, card));
         card.appendChild(commentButton);
         const viewButton = document.createElement('button');
         viewButton.type = 'button';
         viewButton.className = 'comment-button';
         viewButton.textContent = 'View comments';
         viewButton.style.marginLeft = '8px';
-        viewButton.addEventListener('click', () => openComments(imageUrl));
+        viewButton.addEventListener('click', () => openComments(imageUrl, card));
         card.appendChild(viewButton);
         const shareButton = document.createElement('button');
         shareButton.type = 'button';
@@ -216,10 +251,14 @@
     async function loadNextPage() {
       if (loading || exhausted) return;
       loading = true;
+      const version = requestVersion;
+      status.hidden = false;
       status.classList.remove('error');
       status.textContent = offset === 0 ? 'Loading the first entries…' : 'Loading more entries…';
       try {
-        const table = await querySheet(`select * limit ${PAGE_SIZE} offset ${offset}`);
+        const condition = searchTerm ? ` where lower(B) contains '${escapeQueryValue(searchTerm)}'` : '';
+        const table = await querySheet(`select *${condition} limit ${PAGE_SIZE} offset ${offset}`);
+        if (version !== requestVersion) return;
         const rows = table.rows || [];
         if (!headers.length) headers = (table.cols || []).map((column, index) => String(column.label || column.id || `Column ${index + 1}`).trim());
         rows.forEach((row, index) => renderRow(row, offset + index + 2));
@@ -227,17 +266,43 @@
         if (rows.length < PAGE_SIZE) {
           exhausted = true;
           endMessage.style.display = offset ? 'block' : 'none';
-          status.textContent = rows.length ? `Loaded all ${offset} data rows.` : (offset ? `Loaded all ${offset} data rows.` : 'The sheet has no data rows.');
+          if (offset) status.hidden = true;
+          else status.textContent = searchTerm ? 'No matching entries were found in column B.' : 'The sheet has no data rows.';
         } else {
-          status.textContent = `${offset} data rows loaded. Scroll down for more.`;
+          status.hidden = true;
         }
       } catch (error) {
+        if (version !== requestVersion) return;
         status.textContent = error.message || 'Unable to load the sheet right now.';
         status.classList.add('error');
       } finally {
-        loading = false;
+        if (version === requestVersion) loading = false;
       }
     }
+
+    searchForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const value = searchInput.value.trim().toLowerCase();
+      if (!value) {
+        status.hidden = false;
+        status.textContent = 'Enter text to search column B.';
+        status.classList.add('error');
+        return;
+      }
+
+      requestVersion += 1;
+      loading = false;
+      offset = 0;
+      exhausted = false;
+      searchTerm = value;
+      activeEntry = null;
+      commentPanel.style.display = 'none';
+      entries.replaceChildren();
+      endMessage.style.display = 'none';
+      status.hidden = false;
+      status.classList.remove('error');
+      loadNextPage();
+    });
 
     const observer = new IntersectionObserver((observations) => {
       if (observations.some((item) => item.isIntersecting)) loadNextPage();
