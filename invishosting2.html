@@ -1,169 +1,134 @@
 ﻿<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#111111">
-  <title>InvisHosting File</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { min-height: 100vh; margin: 0; padding: 24px 16px 40px; background: #111; color: #fff; font-family: Arial, sans-serif; }
-    main { width: min(100%, 1000px); margin: 0 auto; }
-    h1 { margin: 0 0 20px; text-align: center; font-size: clamp(24px, 5vw, 34px); }
-    .status { margin: 0 0 18px; padding: 12px; border-radius: 8px; background: #222; color: #ccc; text-align: center; }
-    .status.error { color: #ff7777; }
-    .file-container { overflow: hidden; border-radius: 10px; background: #000; }
-    .viewer { display: block; width: 100%; max-height: 80vh; background: #000; }
-    .viewer[hidden] { display: none; }
-    video { height: auto; }
-    img { height: auto; object-fit: contain; }
-    audio { max-width: 100%; }
-    iframe { height: 80vh; min-height: 420px; border: 0; }
-    .info { margin-top: 15px; color: #aaa; font-size: 14px; text-align: center; overflow-wrap: anywhere; }
-    .buttons { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
-    button, .open-button { display: inline-flex; justify-content: center; align-items: center; min-height: 46px; padding: 10px 18px; border: 0; border-radius: 7px; background: #fff; color: #111; font: inherit; font-size: 15px; text-decoration: none; cursor: pointer; }
-    button:hover, .open-button:hover { background: #ddd; }
-    .share-button { min-width: 48px; padding: 8px 14px; font-size: 22px; }
-    button:disabled { background: #555; color: #aaa; cursor: not-allowed; }
-  </style>
-  <script src="app-launch.js" defer></script>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#111111">
+	<title>InvisHosting</title>
+	<style>
+		* { box-sizing: border-box; }
+		body { min-height: 100vh; margin: 0; padding: 28px 16px 44px; overflow-x: hidden; background: #111; color: #fff; font-family: Arial, sans-serif; }
+		main { width: min(100%, 1100px); margin: 0 auto; }
+		#status { min-height: 1.5em; margin: 0 0 16px; padding: 12px; border-radius: 8px; background: #222; color: #ccc; text-align: center; }
+		#status.error { color: #ff7777; }
+		#result[hidden] { display: none; }
+		#sheetData { margin: 0 0 12px; color: #fff; font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; }
+		#preview { display: block; width: 100%; max-width: 100%; height: 100vh; height: 100svh; min-height: 600px; border: 0; border-radius: 8px; background: #000; }
+		.share-actions { display: flex; justify-content: center; margin-top: 16px; }
+		#shareButton { min-height: 44px; padding: 10px 20px; border: 0; border-radius: 7px; background: #fff; color: #111; font: inherit; cursor: pointer; }
+		#shareButton:hover { background: #ddd; }
+		@media (max-width: 520px) { body { padding: 22px 10px 36px; } #preview { min-height: 520px; } }
+	</style>
+	<script src="app-launch.js" defer></script>
 </head>
 <body>
-  <main>
-    <h1>InvisHosting File</h1>
-    <p id="status" class="status" role="status" aria-live="polite">Reading the file type…</p>
-    <div class="file-container">
-      <video id="videoPlayer" class="viewer" controls playsinline preload="metadata" hidden>Your browser does not support HTML5 video.</video>
-      <img id="imagePlayer" class="viewer" alt="Shared image" hidden>
-      <audio id="audioPlayer" class="viewer" controls preload="metadata" hidden></audio>
-      <iframe id="documentPlayer" class="viewer" title="Shared file preview" hidden></iframe>
-    </div>
-    <p id="info" class="info"></p>
-    <div class="buttons">
-      <a id="openButton" class="open-button" href="#" target="_blank" rel="noopener noreferrer" hidden>Open File</a>
-      <button id="shareButton" class="share-button" type="button" aria-label="Share permanent file link" title="Share permanent file link" disabled>ᯓ➤</button>
-    </div>
-  </main>
-  <script>
-    const SPREADSHEET_ID = '1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M';
-    const statusBox = document.querySelector('#status');
-    const infoBox = document.querySelector('#info');
-    const videoPlayer = document.querySelector('#videoPlayer');
-    const imagePlayer = document.querySelector('#imagePlayer');
-    const audioPlayer = document.querySelector('#audioPlayer');
-    const documentPlayer = document.querySelector('#documentPlayer');
-    const openButton = document.querySelector('#openButton');
-    const shareButton = document.querySelector('#shareButton');
-    const sheetValue = new URLSearchParams(window.location.search).get('txt')?.trim() || '';
+	<main>
+		<p id="status" role="status" aria-live="polite">Loading the shared file…</p>
+		<section id="result" hidden aria-label="Shared sheet file">
+			<h1 id="sheetData"></h1>
+			<iframe id="preview" title="Shared file preview" referrerpolicy="no-referrer"></iframe>
+			<div class="share-actions"><button id="shareButton" type="button">Share</button></div>
+		</section>
+	</main>
+	<script>
+		const SPREADSHEET_ID = '1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M';
+		const statusBox = document.querySelector('#status');
+		const result = document.querySelector('#result');
+		const preview = document.querySelector('#preview');
+		const sheetData = document.querySelector('#sheetData');
+		const shareButton = document.querySelector('#shareButton');
+		let linkValue = '';
+		let noteValue = '';
 
-    function queryUrl() {
-      const params = new URLSearchParams({ tqx: 'out:json', range: 'N:O' });
-      return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?${params}`;
-    }
+		function queryUrl(query) {
+			const params = new URLSearchParams({ tqx: 'out:json', range: 'N:O', tq: query });
+			return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?${params}`;
+		}
 
-    async function getSheetExtension(value) {
-      const response = await fetch(queryUrl(), { cache: 'no-store' });
-      if (!response.ok) throw new Error(`Google Sheet request failed (${response.status}).`);
-      const text = await response.text();
-      const start = text.indexOf('{');
-      const end = text.lastIndexOf('}');
-      if (start < 0 || end < start) throw new Error('The Google Sheet returned an invalid response.');
-      const data = JSON.parse(text.slice(start, end + 1));
-      if (data.status !== 'ok') throw new Error(data.errors?.[0]?.detailed_message || 'The sheet query failed.');
-      const matchingRow = (data.table?.rows || []).find((row) => String(row.c?.[0]?.v ?? '').trim() === value);
-      if (!matchingRow) throw new Error('This txt value was not found in column N of the sheet.');
-      return String(matchingRow.c?.[1]?.v ?? '').trim().replace(/^\./, '').toLowerCase();
-    }
+		async function runQuery(query) {
+			const response = await fetch(queryUrl(query), { cache: 'no-store' });
+			if (!response.ok) throw new Error(`Google Sheet request failed (${response.status}).`);
+			const text = await response.text();
+			const start = text.indexOf('{');
+			const end = text.lastIndexOf('}');
+			if (start < 0 || end < start) throw new Error('The Google Sheet returned an invalid response.');
+			const data = JSON.parse(text.slice(start, end + 1));
+			if (data.status !== 'ok') throw new Error(data.errors?.[0]?.detailed_message || 'The Google Sheet query failed.');
+			return data.table;
+		}
 
-    function getFileUrl(value) {
-      if (/^https?:\/\//i.test(value)) return value;
-      return `https://invishosting.com/view.php?id=${encodeURIComponent(value)}`;
-    }
+		function escapeQueryValue(value) {
+			return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+		}
 
-    function getType(extension) {
-      if (/^(png|jpe?g|gif|webp|avif|svg|bmp|ico)$/i.test(extension)) return 'image';
-      if (/^(mp3|wav|ogg|oga|m4a|aac|flac|opus)$/i.test(extension)) return 'audio';
-      if (/^(mp4|m4v|webm|ogv|mov|m3u8|mpd)$/i.test(extension)) return 'video';
-      if (extension) return 'document';
-      return 'video';
-    }
+		function makeFileUrl(value) {
+			return /^https?:\/\//i.test(value)
+				? new URL(value)
+				: new URL(`https://invishosting.com/view.php?id=${encodeURIComponent(value)}`);
+		}
 
-    function displayFile(fileUrl, extension) {
-      const type = getType(extension);
-      const viewers = [videoPlayer, imagePlayer, audioPlayer, documentPlayer];
-      viewers.forEach((viewer) => {
-        viewer.hidden = true;
-        if (viewer.tagName === 'VIDEO' || viewer.tagName === 'AUDIO') {
-          viewer.pause();
-          viewer.removeAttribute('src');
-          viewer.load();
-        } else {
-          viewer.removeAttribute('src');
-        }
-      });
+		function displayRow(row) {
+			linkValue = String(row?.c?.[0]?.v ?? '').trim();
+			noteValue = String(row?.c?.[1]?.f ?? row?.c?.[1]?.v ?? '').trim();
+			if (!linkValue) throw new Error('The matched row has no file link in column N.');
 
-      if (type === 'image') imagePlayer.src = fileUrl, imagePlayer.hidden = false;
-      else if (type === 'audio') audioPlayer.src = fileUrl, audioPlayer.hidden = false, audioPlayer.load();
-      else if (type === 'document') documentPlayer.src = fileUrl, documentPlayer.hidden = false;
-      else videoPlayer.src = fileUrl, videoPlayer.hidden = false, videoPlayer.load();
+			const fileUrl = makeFileUrl(linkValue);
+			const isPdf = /\.pdf$/i.test(fileUrl.pathname) || noteValue.replace(/^\./, '').toLowerCase() === 'pdf';
+			preview.src = isPdf
+				? `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl.href)}&embedded=true`
+				: fileUrl.href;
+			preview.title = noteValue ? `${noteValue} preview` : 'Shared file preview';
+			sheetData.textContent = noteValue;
+			sheetData.hidden = !noteValue;
+			result.hidden = false;
+			statusBox.hidden = true;
+		}
 
-      infoBox.textContent = `File type: ${extension || 'video'} (${type})`;
-      statusBox.textContent = `${type.charAt(0).toUpperCase()}${type.slice(1)} selected.`;
-    }
+		async function shareEntry() {
+			const shareUrl = new URL(window.location.pathname, window.location.origin);
+			shareUrl.searchParams.set('txt', linkValue);
+			const shareText = [
+				'YAN1 APP GEN 1',
+				'YAN1 APP GEN 1',
+				'Found something interesting — have a look! ✨',
+				`▰▰▱  ${noteValue}`,
+				'THANKS 🙏'
+			].join('\n');
+			const fullMessage = `${shareText}\n\n${shareUrl.href}`;
 
-    function showError(message) {
-      statusBox.textContent = message;
-      statusBox.classList.add('error');
-    }
+			try {
+				if (navigator.share) {
+					await navigator.share({ title: 'YAN1 APP GEN 1', text: shareText, url: shareUrl.href });
+				} else if (navigator.clipboard && window.isSecureContext) {
+					await navigator.clipboard.writeText(fullMessage);
+					alert('Share message copied.');
+				} else {
+					window.prompt('Copy this message to share:', fullMessage);
+				}
+			} catch (error) {
+				if (error.name !== 'AbortError') window.prompt('Copy this message to share:', fullMessage);
+			}
+		}
 
-    async function shareFile() {
-      const link = new URL('https://yan1website.github.io/YAN1.home/invishosting2.html');
-      link.searchParams.set('txt', sheetValue);
-      try {
-        if (navigator.share) {
-          await navigator.share({ title: 'InvisHosting file', url: link.href });
-        } else if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(link.href);
-          alert('Permanent link copied. You can share it in any app.');
-        } else {
-          window.prompt('Copy this permanent link to share:', link.href);
-        }
-      } catch (error) {
-        if (error.name !== 'AbortError') window.prompt('Copy this permanent link to share:', link.href);
-      }
-    }
+		async function loadSharedFile() {
+			try {
+				const sharedLink = new URLSearchParams(window.location.search).get('txt')?.trim();
+				if (!sharedLink) throw new Error('This link is missing the txt value.');
 
-    async function loadFile() {
-      if (!sheetValue) {
-        showError('This link is missing its txt value.');
-        return;
-      }
-      try {
-        const extension = await getSheetExtension(sheetValue);
-        const fileUrl = getFileUrl(sheetValue);
-        displayFile(fileUrl, extension);
-        openButton.href = fileUrl;
-        openButton.hidden = false;
-        shareButton.disabled = false;
-      } catch (error) {
-        showError(error.message || 'Unable to load this file.');
-      }
-    }
+				const queryValue = escapeQueryValue(sharedLink);
+				const table = await runQuery(`select N, O where N = '${queryValue}' limit 1`);
+				const row = table.rows?.[0];
+				if (!row) throw new Error('The shared link was not found in column N.');
 
-    videoPlayer.addEventListener('loadedmetadata', () => {
-      if (!videoPlayer.hidden) statusBox.textContent = 'Video loaded successfully.';
-    });
-    videoPlayer.addEventListener('error', () => {
-      if (!videoPlayer.hidden) showError('The selected video could not be loaded.');
-    });
-    imagePlayer.addEventListener('error', () => {
-      if (!imagePlayer.hidden) showError('The selected image could not be loaded.');
-    });
-    audioPlayer.addEventListener('error', () => {
-      if (!audioPlayer.hidden) showError('The selected audio file could not be loaded.');
-    });
-    shareButton.addEventListener('click', shareFile);
-    loadFile();
-  </script>
+				displayRow(row);
+			} catch (error) {
+				statusBox.textContent = error.message || 'Unable to load the shared file.';
+				statusBox.classList.add('error');
+			}
+		}
+
+		shareButton.addEventListener('click', shareEntry);
+		loadSharedFile();
+	</script>
 </body>
 </html>

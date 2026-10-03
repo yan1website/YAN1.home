@@ -1,195 +1,204 @@
 ﻿<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#111111">
-  <title>InvisHosting Files</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { min-height: 100vh; margin: 0; padding: 28px 16px 44px; background: #111; color: #fff; font-family: Arial, sans-serif; }
-    main { width: min(100%, 1100px); margin: 0 auto; }
-    h1 { margin: 0 0 8px; text-align: center; font-size: clamp(26px, 5vw, 38px); }
-    .intro { margin: 0 0 22px; color: #aaa; text-align: center; line-height: 1.5; }
-    #status { min-height: 1.5em; margin: 0 0 16px; padding: 12px; border-radius: 8px; background: #222; color: #ccc; text-align: center; }
-    #status.error { color: #ff7777; }
-    #files { display: grid; gap: 18px; }
-    .file-card { min-width: 0; padding: 16px; border: 1px solid #333; border-radius: 12px; background: #1b1b1b; }
-    .file-title { margin: 0 0 12px; color: #ddd; font-size: 14px; }
-    .preview { display: block; width: 100%; max-height: 72vh; background: #000; }
-    .preview[hidden] { display: none; }
-    video { height: auto; }
-    img { height: auto; object-fit: contain; }
-    audio { max-width: 100%; }
-    iframe { height: 68vh; min-height: 360px; border: 0; }
-    .file-actions { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
-    .file-actions a, .share-button { display: inline-flex; justify-content: center; align-items: center; min-height: 42px; padding: 9px 15px; border: 0; border-radius: 7px; background: #fff; color: #111; font: inherit; text-decoration: none; cursor: pointer; }
-    .file-actions a:hover, .share-button:hover { background: #ddd; }
-    .share-button { min-width: 46px; font-size: 20px; }
-    #sentinel { height: 1px; }
-    #endMessage { display: none; margin: 20px 0; color: #888; text-align: center; }
-    @media (max-width: 520px) { body { padding: 22px 10px 36px; } .file-card { padding: 11px; } }
-  </style>
-  <script src="app-launch.js" defer></script>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#111111">
+	<title>InvisHosting</title>
+	<style>
+		* { box-sizing: border-box; }
+		body { min-height: 100vh; margin: 0; padding: 28px 16px 44px; overflow-x: hidden; background: #111; color: #fff; font-family: Arial, sans-serif; }
+		main { width: min(100%, 1100px); margin: 0 auto; }
+		#searchForm { display: flex; gap: 8px; margin: 0 0 18px; }
+		#searchInput { flex: 1; min-width: 0; min-height: 46px; padding: 10px 12px; border: 1px solid #555; border-radius: 6px; background: #1b1b1b; color: #fff; font: inherit; }
+		#searchForm button { min-height: 46px; padding: 10px 18px; border: 0; border-radius: 6px; background: #fff; color: #111; font: inherit; cursor: pointer; }
+		#searchForm button:hover { background: #ddd; }
+		#status { min-height: 1.5em; margin: 0 0 16px; padding: 12px; border-radius: 8px; background: #222; color: #ccc; text-align: center; }
+		#status.error { color: #ff7777; }
+		#files { display: flex; flex-direction: column; gap: 24px; }
+		.file-entry { min-width: 0; }
+		.file-title { margin: 0 0 12px; color: #fff; font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; }
+		.file-preview { display: block; width: 100%; max-width: 100%; height: 100vh; height: 100svh; min-height: 600px; border: 0; border-radius: 8px; background: #000; }
+		.share-actions { display: flex; justify-content: center; margin-top: 16px; }
+		.share-button { min-height: 44px; padding: 10px 20px; border: 0; border-radius: 7px; background: #fff; color: #111; font: inherit; cursor: pointer; }
+		.share-button:hover { background: #ddd; }
+		#sentinel { height: 1px; }
+		#endMessage { display: none; margin: 20px 0; color: #888; text-align: center; }
+		@media (max-width: 520px) { body { padding: 22px 10px 36px; } .file-preview { min-height: 520px; } }
+	</style>
+	<script src="app-launch.js" defer></script>
 </head>
 <body>
-  <main>
-    <h1>InvisHosting Files</h1>
-    <p class="intro">Files load in groups of 10 as you scroll down.</p>
-    <p id="status" role="status" aria-live="polite">Loading the first files…</p>
-    <section id="files" aria-label="Files from the Google Sheet"></section>
-    <div id="sentinel" aria-hidden="true"></div>
-    <p id="endMessage">You’ve reached the end of the sheet.</p>
-  </main>
-  <script>
-    const SPREADSHEET_ID = '1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M';
-    const PAGE_SIZE = 10;
-    const statusBox = document.querySelector('#status');
-    const filesContainer = document.querySelector('#files');
-    const sentinel = document.querySelector('#sentinel');
-    const endMessage = document.querySelector('#endMessage');
-    let offset = 0;
-    let loading = false;
-    let exhausted = false;
+	<main>
+		<form id="searchForm" role="search">
+			<input id="searchInput" type="search" placeholder="Search column O" aria-label="Search column O" autocomplete="off">
+			<button type="submit">Search</button>
+		</form>
+		<p id="status" role="status" aria-live="polite">Loading files…</p>
+		<section id="files" aria-label="Files from the Google Sheet"></section>
+		<div id="sentinel" aria-hidden="true"></div>
+		<p id="endMessage">You’ve reached the end of the sheet.</p>
+	</main>
+	<script>
+		const SPREADSHEET_ID = '1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M';
+		const PAGE_SIZE = 5;
+		const statusBox = document.querySelector('#status');
+		const filesContainer = document.querySelector('#files');
+		const sentinel = document.querySelector('#sentinel');
+		const endMessage = document.querySelector('#endMessage');
+		const searchForm = document.querySelector('#searchForm');
+		const searchInput = document.querySelector('#searchInput');
+		let offset = 0;
+		let loading = false;
+		let exhausted = false;
+		let searchTerm = '';
+		let requestVersion = 0;
 
-    function sheetQueryUrl(offsetValue) {
-      const params = new URLSearchParams({
-        tqx: 'out:json',
-        range: 'N:O',
-        tq: `select * limit ${PAGE_SIZE} offset ${offsetValue}`
-      });
-      return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?${params}`;
-    }
+		function queryUrl(query) {
+			const params = new URLSearchParams({ tqx: 'out:json', range: 'N:O', tq: query });
+			return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?${params}`;
+		}
 
-    async function fetchPage(offsetValue) {
-      const response = await fetch(sheetQueryUrl(offsetValue), { cache: 'no-store' });
-      if (!response.ok) throw new Error(`Google Sheet request failed (${response.status}).`);
-      const text = await response.text();
-      const start = text.indexOf('{');
-      const end = text.lastIndexOf('}');
-      if (start < 0 || end < start) throw new Error('The Google Sheet returned an invalid response.');
-      const result = JSON.parse(text.slice(start, end + 1));
-      if (result.status !== 'ok') throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed.');
-      return result.table;
-    }
+		async function runQuery(query) {
+			const response = await fetch(queryUrl(query), { cache: 'no-store' });
+			if (!response.ok) throw new Error(`Google Sheet request failed (${response.status}).`);
+			const text = await response.text();
+			const start = text.indexOf('{');
+			const end = text.lastIndexOf('}');
+			if (start < 0 || end < start) throw new Error('The Google Sheet returned an invalid response.');
+			const data = JSON.parse(text.slice(start, end + 1));
+			if (data.status !== 'ok') throw new Error(data.errors?.[0]?.detailed_message || 'The Google Sheet query failed.');
+			return data.table;
+		}
 
-    function fileType(extension) {
-      const ext = String(extension || '').trim().replace(/^\./, '').toLowerCase();
-      if (/^(png|jpe?g|gif|webp|avif|svg|bmp|ico)$/.test(ext)) return 'image';
-      if (/^(mp3|wav|ogg|oga|m4a|aac|flac|opus)$/.test(ext)) return 'audio';
-      if (/^(mp4|m4v|webm|ogv|mov|m3u8|mpd)$/.test(ext)) return 'video';
-      return ext ? 'document' : 'video';
-    }
+		function escapeQueryValue(value) {
+			return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+		}
 
-    function makeFileUrl(value) {
-      return /^https?:\/\//i.test(value)
-        ? value
-        : `https://invishosting.com/view.php?id=${encodeURIComponent(value)}`;
-    }
+		function makeFileUrl(value) {
+			return /^https?:\/\//i.test(value)
+				? new URL(value)
+				: new URL(`https://invishosting.com/view.php?id=${encodeURIComponent(value)}`);
+		}
 
-    function createViewer(type, url) {
-      let viewer;
-      if (type === 'image') {
-        viewer = document.createElement('img');
-        viewer.alt = 'File from InvisHosting';
-      } else if (type === 'audio') {
-        viewer = document.createElement('audio');
-        viewer.controls = true;
-        viewer.preload = 'metadata';
-      } else if (type === 'document') {
-        viewer = document.createElement('iframe');
-        viewer.title = 'File preview';
-      } else {
-        viewer = document.createElement('video');
-        viewer.controls = true;
-        viewer.playsInline = true;
-        viewer.preload = 'metadata';
-      }
-      viewer.className = 'preview';
-      viewer.src = url;
-      if (viewer.tagName === 'IFRAME') viewer.loading = 'lazy';
-      return viewer;
-    }
+		async function shareEntry(linkValue, noteValue) {
+			const shareUrl = new URL('https://yan1website.github.io/YAN1.home/invishosting2.html');
+			shareUrl.searchParams.set('txt', linkValue);
+			const shareText = [
+				'YAN1 APP GEN 1',
+				'YAN1 APP GEN 1',
+				'Found something interesting — have a look! ✨',
+				`▰▰▱  ${noteValue}`,
+				'THANKS 🙏'
+			].join('\n');
+			const fullMessage = `${shareText}\n\n${shareUrl.href}`;
 
-    async function shareFile(value) {
-      const permanentLink = new URL('https://yan1website.github.io/YAN1.home/invishosting2.html');
-      permanentLink.searchParams.set('txt', value);
-      try {
-        if (navigator.share) {
-          await navigator.share({ title: 'InvisHosting file', url: permanentLink.href });
-        } else if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(permanentLink.href);
-          alert('Permanent link copied. You can share it in any app.');
-        } else {
-          window.prompt('Copy this permanent link to share:', permanentLink.href);
-        }
-      } catch (error) {
-        if (error.name !== 'AbortError') window.prompt('Copy this permanent link to share:', permanentLink.href);
-      }
-    }
+			try {
+				if (navigator.share) {
+					await navigator.share({ title: 'YAN1 APP GEN 1', text: shareText, url: shareUrl.href });
+				} else if (navigator.clipboard && window.isSecureContext) {
+					await navigator.clipboard.writeText(fullMessage);
+					alert('Share message copied.');
+				} else {
+					window.prompt('Copy this message to share:', fullMessage);
+				}
+			} catch (error) {
+				if (error.name !== 'AbortError') window.prompt('Copy this message to share:', fullMessage);
+			}
+		}
 
-    function renderRow(row, rowNumber) {
-      const value = String(row.c?.[0]?.v ?? '').trim();
-      const extension = String(row.c?.[1]?.v ?? '').trim().replace(/^\./, '').toLowerCase();
-      if (!value) return false;
-      const url = makeFileUrl(value);
-      const type = fileType(extension);
-      const card = document.createElement('article');
-      card.className = 'file-card';
-      const heading = document.createElement('h2');
-      heading.className = 'file-title';
-      heading.textContent = `File ${rowNumber} · ${extension || type}`;
-      card.append(heading, createViewer(type, url));
+		function renderRow(row, rowNumber) {
+			const linkValue = String(row.c?.[0]?.v ?? '').trim();
+			const noteValue = String(row.c?.[1]?.f ?? row.c?.[1]?.v ?? '').trim();			
+			if (!linkValue) return;
+			const fileUrl = makeFileUrl(linkValue);
+			const isPdf = /\.pdf$/i.test(fileUrl.pathname) || noteValue.replace(/^\./, '').toLowerCase() === 'pdf';
+			const viewerUrl = isPdf
+				? `https://docs.google.com/gview?url=${encodeURIComponent(fileUrl.href)}&embedded=true`
+				: fileUrl.href;
+			const entry = document.createElement('article');
+			entry.className = 'file-entry';
+			entry.setAttribute('aria-label', `File ${rowNumber}`);
 
-      const actions = document.createElement('div');
-      actions.className = 'file-actions';
-      const openLink = document.createElement('a');
-      openLink.href = url;
-      openLink.target = '_blank';
-      openLink.rel = 'noopener noreferrer';
-      openLink.textContent = 'Open file';
-      const shareButton = document.createElement('button');
-      shareButton.type = 'button';
-      shareButton.className = 'share-button';
-      shareButton.textContent = 'ᯓ➤';
-      shareButton.setAttribute('aria-label', 'Share permanent file link');
-      shareButton.title = 'Share permanent file link';
-      shareButton.addEventListener('click', () => shareFile(value));
-      actions.append(openLink, shareButton);
-      card.appendChild(actions);
-      filesContainer.appendChild(card);
-      return true;
-    }
+			if (noteValue) {
+				const title = document.createElement('h2');
+				title.className = 'file-title';
+				title.textContent = noteValue;
+				entry.appendChild(title);
+			}
 
-    async function loadNextPage() {
-      if (loading || exhausted) return;
-      loading = true;
-      statusBox.classList.remove('error');
-      statusBox.textContent = offset === 0 ? 'Loading the first files…' : 'Loading more files…';
-      try {
-        const table = await fetchPage(offset);
-        const rows = table.rows || [];
-        rows.forEach((row, index) => renderRow(row, offset + index + 1));
-        offset += rows.length;
-        if (rows.length < PAGE_SIZE) {
-          exhausted = true;
-          endMessage.style.display = offset ? 'block' : 'none';
-          statusBox.textContent = offset ? `Loaded all ${offset} sheet rows.` : 'No file rows were found in columns N and O.';
-        } else {
-          statusBox.textContent = `${offset} sheet rows loaded. Scroll down for more.`;
-        }
-      } catch (error) {
-        statusBox.textContent = error.message || 'Unable to load files from the sheet.';
-        statusBox.classList.add('error');
-      } finally {
-        loading = false;
-      }
-    }
+			const preview = document.createElement('iframe');
+			preview.className = 'file-preview';
+			preview.title = noteValue ? `${noteValue} preview` : `File ${rowNumber} preview`;
+			preview.referrerPolicy = 'no-referrer';
+			preview.loading = 'lazy';
+			preview.src = viewerUrl;
+			entry.appendChild(preview);
 
-    new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) loadNextPage();
-    }, { rootMargin: '500px 0px' }).observe(sentinel);
-    loadNextPage();
-  </script>
+			const actions = document.createElement('div');
+			actions.className = 'share-actions';
+			const shareButton = document.createElement('button');
+			shareButton.className = 'share-button';
+			shareButton.type = 'button';
+			shareButton.textContent = 'Share';
+			shareButton.addEventListener('click', () => shareEntry(linkValue, noteValue));
+			actions.appendChild(shareButton);
+			entry.appendChild(actions);
+			filesContainer.appendChild(entry);
+		}
+
+		async function loadNextBatch() {
+			if (loading || exhausted) return;
+			loading = true;
+			const version = requestVersion;
+			statusBox.classList.remove('error');
+			statusBox.hidden = false;
+			statusBox.textContent = offset === 0 ? 'Loading files…' : 'Loading more files…';
+			try {
+				const condition = searchTerm
+					? `N is not null and lower(O) contains '${escapeQueryValue(searchTerm)}'`
+					: 'N is not null';
+				const table = await runQuery(`select N, O where ${condition} limit ${PAGE_SIZE} offset ${offset}`);
+				if (version !== requestVersion) return;
+				const rows = table.rows || [];
+				const batchOffset = offset;
+				offset += rows.length;
+				rows.forEach((row, index) => renderRow(row, batchOffset + index + 1));
+				if (rows.length < PAGE_SIZE) {
+					exhausted = true;
+					statusBox.hidden = offset > 0;
+					if (offset === 0) statusBox.textContent = searchTerm ? 'No matching text found in column O.' : 'No files were found in columns N and O.';
+					endMessage.style.display = offset > 0 ? 'block' : 'none';
+				} else {
+					statusBox.hidden = true;
+				}
+			} catch (error) {
+				if (version !== requestVersion) return;
+				statusBox.textContent = error.message || 'Unable to load files from the sheet.';
+				statusBox.classList.add('error');
+			} finally {
+				if (version === requestVersion) loading = false;
+			}
+		}
+
+		searchForm.addEventListener('submit', (event) => {
+			event.preventDefault();
+			requestVersion += 1;
+			loading = false;
+			offset = 0;
+			exhausted = false;
+			searchTerm = searchInput.value.trim().toLowerCase();
+			filesContainer.replaceChildren();
+			endMessage.style.display = 'none';
+			statusBox.hidden = false;
+			statusBox.classList.remove('error');
+			loadNextBatch();
+		});
+
+		new IntersectionObserver((entries) => {
+			if (entries.some((entry) => entry.isIntersecting)) loadNextBatch();
+		}, { rootMargin: '500px 0px' }).observe(sentinel);
+		loadNextBatch();
+	</script>
 </body>
 </html>
