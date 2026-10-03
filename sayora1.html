@@ -20,10 +20,13 @@
     #status { min-height: 1.5em; margin: 0 0 16px; color: #d7d1e3; font-size: 14px; }
     #status.error { color: #ffc4c4; }
     #entries { display: grid; gap: 16px; }
-    .entry { padding: clamp(16px, 3vw, 24px); border: 1px solid var(--grid-accent, #343044); border-radius: 16px; background: rgb(25 24 39 / 92%); box-shadow: 0 14px 40px #08081045; }
+    .entry { position: relative; padding: clamp(16px, 3vw, 24px); border: 1px solid var(--grid-accent, #343044); border-radius: 16px; background: rgb(25 24 39 / 92%); box-shadow: 0 14px 40px #08081045; }
+    .profile-link { position: absolute; top: 12px; right: 12px; display: grid; width: 40px; height: 40px; place-items: center; margin: 0; padding: 0; border: 1px solid #71608e; border-radius: 9px; color: #f7f5ff; background: #29243a; font-size: 22px; cursor: pointer; }
+    .profile-link:hover { background: #38304c; }
+    .profile-link:disabled { opacity: .5; cursor: not-allowed; }
     .entry[data-action="comment"], #commentPanel[data-mode="comment"] { border-color: #facc15; box-shadow: 0 0 0 2px #facc1555, 0 14px 40px #08081045; }
     .entry[data-action="view"], #commentPanel[data-mode="view"] { border-color: #4ade80; box-shadow: 0 0 0 2px #4ade8055, 0 14px 40px #08081045; }
-    .entry-title { margin: 0 0 12px; color: #c6a8ff; font-size: 14px; }
+    .entry-title { margin: 0 0 12px; padding-right: 48px; color: #c6a8ff; font-size: 14px; }
     .field { padding: 12px 0; border-top: 1px solid #39364b; overflow-wrap: anywhere; }
     .field-name { display: block; margin-bottom: 5px; color: #bba2e8; font-size: 12px; font-weight: 700; }
     .field-value { margin: 0; color: #f1edf8; line-height: 1.6; white-space: pre-wrap; }
@@ -99,6 +102,30 @@
 
     function escapeQueryValue(value) {
       return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+
+    function profileEmail(row, columns = headers) {
+      const cells = row.c || [];
+      const emailColumn = columns.findIndex(column => /e-?mail/i.test(String(column.label || column.id || '')));
+      const labeledEmail = emailColumn >= 0 ? valueOf(cells[emailColumn]) : '';
+      return (labeledEmail.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || cells.map(valueOf).join(' ').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [])[0] || '';
+    }
+
+    function addProfileButton(card, email) {
+      card.querySelector('.profile-link')?.remove();
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'profile-link';
+      button.textContent = '🪪';
+      button.setAttribute('aria-label', email ? `Open profile for ${email}` : 'Profile unavailable: email not found');
+      button.title = email ? `Open profile for ${email}` : 'Profile unavailable: email not found';
+      button.disabled = !email;
+      if (email) button.addEventListener('click', () => {
+        const url = new URL('https://yan1website.github.io/YAN1.home/profile/index.html');
+        url.searchParams.set('prof', email);
+        window.open(url.href, '_blank', 'noopener,noreferrer');
+      });
+      card.appendChild(button);
     }
 
     function appendValue(container, value) {
@@ -204,6 +231,7 @@
       title.className = 'entry-title';
       title.textContent = `Entry ${rowNumber}`;
       card.appendChild(title);
+      addProfileButton(card, profileEmail(row));
 
       let hasContent = false;
       (row.c || []).forEach((cell, index) => {

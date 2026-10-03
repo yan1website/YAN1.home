@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>Profile Search</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 48px 20px;
+      color: #f8fafc;
+      background: #111827;
+      font-family: system-ui, sans-serif;
+    }
+    main {
+      width: min(100%, 760px);
+      margin: 0 auto;
+    }
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 6vw, 3rem); }
+    .intro { margin: 0 0 28px; color: #cbd5e1; line-height: 1.6; }
+    form {
+      display: flex;
+      gap: 10px;
+      padding: 8px;
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 12px;
+    }
+    input {
+      flex: 1;
+      min-width: 0;
+      padding: 12px;
+      color: #f8fafc;
+      background: transparent;
+      border: 0;
+      font: inherit;
+    }
+    input:focus-visible { outline: 2px solid #38bdf8; outline-offset: -2px; }
+    button {
+      padding: 11px 20px;
+      color: #082f49;
+      background: #38bdf8;
+      border: 0;
+      border-radius: 8px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:hover { background: #7dd3fc; }
+    button:disabled { cursor: wait; opacity: 0.7; }
+    #status { min-height: 24px; margin: 18px 0; color: #cbd5e1; }
+    #status[data-state="error"] { color: #fca5a5; }
+    .result {
+      flex: 0 0 min(100%, 340px);
+      width: min(100%, 340px);
+      padding: 18px;
+      overflow-wrap: anywhere;
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 12px;
+    }
+    .results-list {
+      display: flex;
+      gap: 14px;
+      overflow-x: auto;
+      padding: 4px 2px 14px;
+      scroll-snap-type: x proximity;
+    }
+    .results-list:focus-visible { outline: 2px solid #38bdf8; outline-offset: 3px; }
+    .results-list .result { scroll-snap-align: start; }
+    .result h2 { margin: 0 0 12px; font-size: 1.1rem; }
+    .result-image {
+      display: block;
+      width: min(100%, 280px);
+      max-height: 280px;
+      margin-top: 8px;
+      object-fit: contain;
+      cursor: zoom-in;
+    }
+    .result-image:focus-visible { outline: 2px solid #38bdf8; outline-offset: 3px; }
+    .open-sayora-link {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 11px 20px;
+      color: #082f49;
+      background: #38bdf8;
+      border-radius: 8px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .open-sayora-link:hover { background: #7dd3fc; }
+    .open-sayora-link:focus-visible { outline: 2px solid #f8fafc; outline-offset: 3px; }
+    #image-viewer {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      max-width: none;
+      height: 100vh;
+      max-height: none;
+      padding: 64px 24px 24px;
+      color: #f8fafc;
+      background: #030712;
+      border: 0;
+    }
+    #image-viewer::backdrop { background: rgb(3 7 18 / 95%); }
+    #image-viewer img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    #close-image-viewer {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      padding: 8px 16px;
+      color: #f8fafc;
+      background: #374151;
+    }
+    #close-image-viewer:hover { background: #4b5563; }
+    @media (max-width: 520px) {
+      #image-viewer { padding: 64px 12px 12px; }
+      #close-image-viewer { top: 10px; right: 12px; }
+    }
+    dl { display: grid; grid-template-columns: minmax(130px, 0.4fr) 1fr; gap: 10px 16px; margin: 0; }
+    dt { color: #94a3b8; font-weight: 600; }
+    dd { min-width: 0; margin: 0; white-space: pre-wrap; }
+    @media (max-width: 520px) {
+      body { padding: 32px 16px; }
+      form { flex-direction: column; }
+      button { width: 100%; }
+      dl { grid-template-columns: 1fr; gap: 4px; }
+      dd { margin-bottom: 10px; }
+    }
+  </style>
+  <script src="app-launch.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>Profile Search</h1>
+    <form id="search-form">
+      <input id="search-query" name="query" type="search" placeholder="Enter text to search" aria-label="Search both sheets by column B" required>
+      <button id="search-button" type="submit">Search</button>
+    </form>
+    <p id="status" role="status" aria-live="polite"></p>
+    <section aria-labelledby="primary-sheet-heading">
+      <h2 id="primary-sheet-heading">Registered accounts in YAN1</h2>
+      <p id="primary-status" role="status" aria-live="polite"></p>
+      <section id="primary-results" class="results-list" aria-label="First spreadsheet search results" tabindex="0"></section>
+    </section>
+    <section aria-labelledby="additional-sheet-heading">
+      <h2 id="additional-sheet-heading">Sayora uploads</h2>
+      <p id="additional-status" role="status" aria-live="polite"></p>
+      <section id="additional-results" class="results-list" aria-label="Second spreadsheet search results" tabindex="0"></section>
+    </section>
+    <section aria-labelledby="third-sheet-heading">
+      <h2 id="third-sheet-heading">Comments to Sayora posts</h2>
+      <p id="third-status" role="status" aria-live="polite"></p>
+      <section id="third-results" class="results-list" aria-label="Third spreadsheet search results" tabindex="0"></section>
+    </section>
+  </main>
+  <dialog id="image-viewer" aria-label="Full-screen image viewer">
+    <button id="close-image-viewer" type="button" aria-label="Close full-screen image">Close</button>
+    <img id="full-size-image" alt="">
+  </dialog>
+
+  <script>
+    const sheetIds = {
+      primary: '1X1SvdG9VpCcYc0tFp-gl767McaaGsJklwaMWxXk-WP8',
+      additional: '1GafYJhhoZRuQG7SRJKxfJAa55hoJ6gT2QF-9_dK2Gu0',
+      third: '1etJJ_n-kESuu-QaO1xiKdVyH02G2b8WbWGgNciEWPE4'
+    };
+    const cachedTables = new Map();
+    const tableRequests = new Map();
+    let requestNumber = 0;
+
+    function getSheetTable(sheetId) {
+      if (cachedTables.has(sheetId)) return Promise.resolve(cachedTables.get(sheetId));
+      if (tableRequests.has(sheetId)) return tableRequests.get(sheetId);
+
+      const tableRequest = new Promise((resolve, reject) => {
+        const callbackName = `receiveProfileSheetData${++requestNumber}`;
+        const script = document.createElement('script');
+        let settled = false;
+        const timeout = window.setTimeout(() => {
+          settled = true;
+          cleanup();
+          reject(new Error('The spreadsheet request timed out. Please try again.'));
+        }, 15000);
+
+        function cleanup() {
+          window.clearTimeout(timeout);
+          script.remove();
+          delete window[callbackName];
+          if (settled) return;
+          settled = true;
+        }
+
+        window[callbackName] = response => {
+          cleanup();
+          if (response.status !== 'ok' || !response.table) {
+            reject(new Error(response.errors?.[0]?.detailed_message || 'The spreadsheet returned an error.'));
+            return;
+          }
+          resolve(response.table);
+        };
+        script.onerror = () => {
+          settled = true;
+          cleanup();
+          reject(new Error('Could not load the public spreadsheet. Check your connection and try again.'));
+        };
+        const request = `out:json;responseHandler:${callbackName}`;
+        script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=${encodeURIComponent(request)}`;
+        document.head.append(script);
+      }).then(table => {
+        cachedTables.set(sheetId, table);
+        return table;
+      }).finally(() => {
+        tableRequests.delete(sheetId);
+      });
+
+      tableRequests.set(sheetId, tableRequest);
+      return tableRequest;
+    }
+
+    function cellText(cell) {
+      if (!cell || cell.v === null || cell.v === undefined) return '';
+      return cell.f ?? String(cell.v);
+    }
+
+    const imageViewer = document.getElementById('image-viewer');
+    const fullSizeImage = document.getElementById('full-size-image');
+    document.getElementById('close-image-viewer').addEventListener('click', () => imageViewer.close());
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && imageViewer.open) {
+        event.preventDefault();
+        imageViewer.close();
+      }
+    }, true);
+    imageViewer.addEventListener('click', event => {
+      if (event.target === imageViewer) imageViewer.close();
+    });
+
+    function showResults(table, query, status, results, showImages = false, showOpenButton = false, resultLabel = 'row', headingLabel = 'profile') {
+      const headers = table.cols.map((column, index) => column.label || `Column ${index + 1}`);
+      const imageColumns = showImages
+        ? headers.map((header, index) => (/image\s*url|^to$/i.test(header.trim()) ? index : -1)).filter(index => index >= 0)
+        : [];
+      const matches = table.rows.filter(row => {
+        const value = cellText(row.c?.[1]);
+        return value.toLocaleLowerCase().includes(query.toLocaleLowerCase());
+      });
+
+      results.replaceChildren();
+      if (!matches.length) {
+        status.textContent = 'No matching rows found. Try a different search.';
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      matches.forEach((row, index) => {
+        const card = document.createElement('article');
+        card.className = 'result';
+        const heading = document.createElement('h2');
+        heading.textContent = matches.length === 1 ? `Matching ${headingLabel}` : `Matching ${headingLabel} ${index + 1}`;
+        const fields = document.createElement('dl');
+        headers.forEach((header, columnIndex) => {
+          const label = document.createElement('dt');
+          label.textContent = header;
+          const value = document.createElement('dd');
+          const text = cellText(row.c?.[columnIndex]);
+          if (/^https?:\/\//i.test(text)) {
+            const link = document.createElement('a');
+            link.href = text;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = text;
+            value.append(link);
+            if (imageColumns.includes(columnIndex)) {
+              const image = document.createElement('img');
+              image.className = 'result-image';
+              image.src = text;
+              image.alt = `${header} for matching upload ${index + 1}`;
+              image.loading = 'lazy';
+              image.tabIndex = 0;
+              image.setAttribute('role', 'button');
+              image.setAttribute('aria-label', `View ${image.alt} full screen`);
+              const openImageViewer = () => {
+                fullSizeImage.src = image.src;
+                fullSizeImage.alt = image.alt;
+                imageViewer.showModal();
+              };
+              image.addEventListener('click', openImageViewer);
+              image.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  openImageViewer();
+                }
+              });
+              image.addEventListener('error', () => {
+                image.alt = 'Image could not be loaded';
+              });
+              value.append(document.createElement('br'), image);
+            }
+          } else {
+            value.textContent = text || '—';
+          }
+          fields.append(label, value);
+        });
+        card.append(heading, fields);
+        if (showOpenButton) {
+          const preferredLinkColumn = headers.findIndex(header => /^to$/i.test(header.trim()));
+          const linkColumns = preferredLinkColumn >= 0
+            ? [preferredLinkColumn, ...imageColumns.filter(columnIndex => columnIndex !== preferredLinkColumn)]
+            : imageColumns;
+          const imageUrl = linkColumns.map(columnIndex => cellText(row.c?.[columnIndex]).trim())
+            .find(value => /^https?:\/\//i.test(value));
+          if (imageUrl) {
+            const openUrl = new URL('https://yan1website.github.io/YAN1.home/sayora5.html');
+            openUrl.searchParams.set('txt', imageUrl.replace(/^https?:\/\//i, ''));
+            const openLink = document.createElement('a');
+            openLink.className = 'open-sayora-link';
+            openLink.href = openUrl.href;
+            openLink.target = '_blank';
+            openLink.rel = 'noopener noreferrer';
+            openLink.textContent = 'Open';
+            card.append(openLink);
+          }
+        }
+        fragment.append(card);
+      });
+      results.append(fragment);
+      status.textContent = `Found ${matches.length} matching ${resultLabel}${matches.length === 1 ? '' : 's'}.`;
+    }
+
+    const form = document.getElementById('search-form');
+    const input = document.getElementById('search-query');
+    const button = document.getElementById('search-button');
+    const status = document.getElementById('status');
+    const sheets = [
+      {
+        id: sheetIds.primary,
+        status: document.getElementById('primary-status'),
+        results: document.getElementById('primary-results'),
+        resultLabel: 'profile'
+      },
+      {
+        id: sheetIds.additional,
+        status: document.getElementById('additional-status'),
+        results: document.getElementById('additional-results'),
+        showImages: true,
+        showOpenButton: true,
+        resultLabel: 'upload'
+      },
+      {
+        id: sheetIds.third,
+        status: document.getElementById('third-status'),
+        results: document.getElementById('third-results'),
+        showImages: true,
+        showOpenButton: true,
+        resultLabel: 'comment',
+        headingLabel: 'comment'
+      }
+    ];
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const query = input.value.trim();
+      sheets.forEach(sheet => sheet.results.replaceChildren());
+      if (!query) {
+        status.textContent = 'Enter text to search.';
+        status.dataset.state = 'error';
+        input.focus();
+        return;
+      }
+
+      button.disabled = true;
+      status.dataset.state = 'loading';
+      status.textContent = `Searching all ${sheets.length} spreadsheets…`;
+      sheets.forEach(sheet => {
+        sheet.status.textContent = 'Searching…';
+        sheet.status.dataset.state = 'loading';
+      });
+
+      const outcomes = await Promise.allSettled(sheets.map(sheet => getSheetTable(sheet.id)));
+      outcomes.forEach((outcome, index) => {
+        const sheet = sheets[index];
+        if (outcome.status === 'fulfilled') {
+          showResults(outcome.value, query, sheet.status, sheet.results, sheet.showImages, sheet.showOpenButton, sheet.resultLabel, sheet.headingLabel);
+          sheet.status.dataset.state = 'success';
+        } else {
+          sheet.status.textContent = outcome.reason.message;
+          sheet.status.dataset.state = 'error';
+        }
+      });
+
+      const failedCount = outcomes.filter(outcome => outcome.status === 'rejected').length;
+      status.textContent = failedCount === 0
+        ? `Search complete for all ${sheets.length} spreadsheets.`
+        : failedCount === sheets.length
+          ? 'Could not search any spreadsheets.'
+          : `Search complete with errors in ${failedCount} spreadsheet${failedCount === 1 ? '' : 's'}.`;
+      status.dataset.state = failedCount ? 'error' : 'success';
+      button.disabled = false;
+    });
+
+    async function fetchInternalEmail() {
+      const internalData = window.InternalData;
+      if (!internalData) return null;
+
+      const keysToTry = ['email', 'userToken', 'userEmail', 'user_email'];
+      const hostsToTry = ['yan1website.github.io', 'websiteA.com', 'github.io', 'github.com'];
+      const errors = [];
+
+      async function readValue(read) {
+        try {
+          const value = await read();
+          if (typeof value !== 'string') return null;
+          const email = value.trim();
+          return email && !email.startsWith('ERROR:') ? email : null;
+        } catch (error) {
+          errors.push(error instanceof Error ? error.message : String(error));
+          return null;
+        }
+      }
+
+      if (typeof internalData.get === 'function') {
+        for (const key of keysToTry) {
+          const email = await readValue(() => internalData.get(key));
+          if (email) return email;
+        }
+      }
+
+      if (typeof internalData.getRemote === 'function') {
+        for (const host of hostsToTry) {
+          for (const key of keysToTry) {
+            const email = await readValue(() => internalData.getRemote(host, key));
+            if (email) return email;
+          }
+        }
+      }
+
+      if (errors.length) throw new Error(errors[0]);
+      return null;
+    }
+
+    async function runInitialSearch() {
+      const sharedSearch = new URLSearchParams(window.location.search).get('prof')?.trim();
+      if (sharedSearch) {
+        input.value = sharedSearch;
+        form.requestSubmit();
+        return;
+      }
+
+      if (!window.InternalData) return;
+
+      try {
+        const searchValue = await fetchInternalEmail();
+        if (!searchValue) {
+          status.textContent = 'Could not read an email from app data. Enter a search manually.';
+          status.dataset.state = 'error';
+          return;
+        }
+
+        input.value = searchValue;
+        form.requestSubmit();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        status.textContent = `Could not read an email from app data: ${message}`;
+        status.dataset.state = 'error';
+      }
+    }
+
+    runInitialSearch();
+  </script>
+</body>
+</html>

@@ -17,7 +17,10 @@
     #searchForm button:hover { background: #ddd; }
     .upload-link { display: inline-flex; flex: 0 0 auto; min-height: 46px; align-items: center; justify-content: center; padding: 0 14px; border: 1px solid #71608e; border-radius: 6px; color: #f7f5ff; background: #29243a; font-weight: 650; text-decoration: none; }
     .upload-link:hover { background: #38304c; }
-    .card { padding: clamp(18px, 4vw, 30px); border: 1px solid #38bdf8; border-radius: 20px; background: rgb(25 24 39 / 92%); box-shadow: 0 24px 70px #08081070; }
+    .card { position: relative; padding: clamp(18px, 4vw, 30px); border: 1px solid #38bdf8; border-radius: 20px; background: rgb(25 24 39 / 92%); box-shadow: 0 24px 70px #08081070; }
+    .profile-link { position: absolute; top: 12px; right: 12px; display: grid; width: 40px; height: 40px; place-items: center; margin: 0; padding: 0; border: 1px solid #71608e; border-radius: 9px; color: #f7f5ff; background: #29243a; font-size: 22px; cursor: pointer; }
+    .profile-link:hover { background: #38304c; }
+    .profile-link:disabled { opacity: .5; cursor: not-allowed; }
     .card[data-action="comment"], #commentPanel[data-mode="comment"] { border-color: #facc15; box-shadow: 0 0 0 2px #facc1555, 0 24px 70px #08081070; }
     .card[data-action="view"], #commentPanel[data-mode="view"] { border-color: #4ade80; box-shadow: 0 0 0 2px #4ade8055, 0 24px 70px #08081070; }
     .status { margin: 0; color: #d7d1e3; font-size: 14px; line-height: 1.5; }
@@ -97,6 +100,30 @@
 
     function escapeQueryValue(value) {
       return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+
+    function profileEmail(row, columns) {
+      const cells = row.c || [];
+      const emailColumn = (columns || []).findIndex(column => /e-?mail/i.test(String(column.label || column.id || '')));
+      const labeledEmail = emailColumn >= 0 ? cellText(cells[emailColumn]) : '';
+      return (labeledEmail.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || cells.map(cellText).join(' ').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [])[0] || '';
+    }
+
+    function addProfileButton(card, email) {
+      card.querySelector('.profile-link')?.remove();
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'profile-link';
+      button.textContent = '🪪';
+      button.setAttribute('aria-label', email ? `Open profile for ${email}` : 'Profile unavailable: email not found');
+      button.title = email ? `Open profile for ${email}` : 'Profile unavailable: email not found';
+      button.disabled = !email;
+      if (email) button.addEventListener('click', () => {
+        const url = new URL('https://yan1website.github.io/YAN1.home/profile/index.html');
+        url.searchParams.set('prof', email);
+        window.open(url.href, '_blank', 'noopener,noreferrer');
+      });
+      card.appendChild(button);
     }
 
     function appendCellContent(container, value) {
@@ -229,6 +256,7 @@
 
     function renderRow(selectedRow, columns) {
       if (!headers.length) headers = (columns || []).map((column, index) => String(column.label || column.id || `Column ${index + 1}`).trim());
+      addProfileButton(rowResult.closest('.card'), profileEmail(selectedRow, columns));
       rowCells.replaceChildren();
       (selectedRow.c || []).forEach((cell, index) => {
         const value = cellText(cell);

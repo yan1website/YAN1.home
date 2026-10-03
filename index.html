@@ -58,6 +58,48 @@
       throw new Error('Native sharing is unavailable.');
     };
 
+    function deliverPythonCallback(callbackId, suffix, value) {
+      if (typeof callbackId !== 'string' || !callbackId) return false;
+      const callbackName = `${callbackId}_${suffix}`;
+
+      function findCallback(doc, targetWindow) {
+        const callback = targetWindow[callbackName];
+        if (typeof callback === 'function') {
+          callback(value);
+          return true;
+        }
+
+        for (const frame of doc.querySelectorAll('iframe')) {
+          const childDocument = frame.contentDocument;
+          if (childDocument && findCallback(childDocument, frame.contentWindow)) return true;
+        }
+        return false;
+      }
+
+      if (typeof window[callbackName] === 'function') {
+        window[callbackName](value);
+        return true;
+      }
+
+      for (const frame of document.querySelectorAll('iframe')) {
+        const childDocument = frame.contentDocument;
+        if (childDocument && findCallback(childDocument, frame.contentWindow)) return true;
+      }
+      return false;
+    }
+
+    window.onPythonResult = (output, callbackId) => {
+      if (!deliverPythonCallback(callbackId, 'success', output)) {
+        console.warn('No page callback found for Python result.', callbackId);
+      }
+    };
+
+    window.onPythonError = (errorMessage, callbackId) => {
+      if (!deliverPythonCallback(callbackId, 'error', errorMessage)) {
+        console.error('No page callback found for Python error.', callbackId);
+      }
+    };
+
     function shuffle(items) {
       for (let i = items.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -74,6 +116,17 @@
       return `hsl(${hash % 360} 88% 70%)`;
     }
 
+    function isValidPagePath(path) {
+      return typeof path === 'string'
+        && path.endsWith('.html')
+        && !path.includes('\\')
+        && path.split('/').every(segment => segment && segment !== '.' && segment !== '..');
+    }
+
+    function encodedPagePath(path) {
+      return path.split('/').map(encodeURIComponent).join('/');
+    }
+
     function activateFrame(frame) {
       if (frame.dataset.active === 'true') return;
       frame.dataset.active = 'true';
@@ -82,7 +135,7 @@
         resumeMedia(frame);
       } else if (!frame.hasAttribute('src')) {
         frame.dataset.requested = 'true';
-        frame.src = new URL(frame.dataset.src, document.baseURI).href;
+        frame.src = new URL(encodedPagePath(frame.dataset.src), document.baseURI).href;
       }
     }
 
@@ -237,10 +290,10 @@
       reloadButton.addEventListener('click', () => {
         frame.dataset.loaded = 'false';
         frame.dataset.requested = 'true';
-        frame.src = new URL(filename, document.baseURI).href;
+        frame.src = new URL(encodedPagePath(filename), document.baseURI).href;
       });
 
-      const shareUrl = `https://yan1website.github.io/YAN1.home/${encodeURIComponent(filename)}`;
+      const shareUrl = `https://yan1website.github.io/YAN1.home/${encodedPagePath(filename)}`;
       const shareButton = document.createElement('button');
       shareButton.className = 'page-action';
       shareButton.type = 'button';
@@ -248,11 +301,20 @@
       shareButton.setAttribute('aria-label', `Share ${filename}`);
       shareButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/></svg>';
       shareButton.addEventListener('click', async () => {
+        const shareTitle = 'YAN1 APP GEN 1';
+        const shareText = [
+          shareTitle,
+          'Found something interesting — have a look! ✨',
+          `🌐 ${filename}`,
+          'THANKS 🙏'
+        ].join('\n');
+        const fullMessage = `${shareTitle}\n${shareText}\n\n${shareUrl}`;
+
         try {
           if (window.Android && typeof window.Android.shareText === 'function') {
-            window.Android.shareText(shareUrl);
+            window.Android.shareText(fullMessage);
           } else if (navigator.share) {
-            await navigator.share({ url: shareUrl });
+            await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
           } else {
             throw new Error('Native sharing is unavailable.');
           }
@@ -260,12 +322,12 @@
           if (error.name === 'AbortError') return;
           try {
             if (navigator.clipboard && window.isSecureContext) {
-              await navigator.clipboard.writeText(shareUrl);
-              status.textContent = `Link copied: ${shareUrl}`;
+              await navigator.clipboard.writeText(fullMessage);
+              status.textContent = `Share message copied: ${shareUrl}`;
               return;
             }
           } catch (_) {}
-          window.prompt('Copy this link to share:', shareUrl);
+          window.prompt('Copy this message to share:', fullMessage);
         }
       });
 
@@ -283,7 +345,7 @@
       const frame = document.createElement('iframe');
       frame.title = filename;
       frame.loading = 'lazy';
-      frame.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture; web-share; clipboard-read; clipboard-write';
+      frame.allow = 'accelerometer; autoplay; camera; clipboard-read; clipboard-write; display-capture; encrypted-media; fullscreen; geolocation; gyroscope; magnetometer; microphone; midi; payment; picture-in-picture; publickey-credentials-get; screen-wake-lock; usb; web-share; xr-spatial-tracking';
       frame.dataset.src = filename;
       frame.addEventListener('load', () => {
         if (frame.dataset.requested !== 'true') return;
@@ -346,8 +408,8 @@
         const response = await fetch('list.json', { cache: 'no-store' });
         if (!response.ok) throw new Error(`Could not read list.json (${response.status})`);
         const files = await response.json();
-        if (!Array.isArray(files) || !files.length || files.some(name => typeof name !== 'string' || !name.endsWith('.html') || name.includes('/') || name.includes('\\'))) {
-          throw new Error('list.json must contain an array of HTML filenames in this folder.');
+        if (!Array.isArray(files) || !files.length || files.some(name => !isValidPagePath(name))) {
+          throw new Error('list.json must contain an array of relative HTML paths, such as "page.html" or "news/index.html".');
         }
         window.pageFiles = [...new Set(files)];
         remaining = shuffle([...window.pageFiles]);
