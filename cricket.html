@@ -35,22 +35,6 @@
         letter-spacing: 0.5px;
     }
 
-    /* Home Icon */
-    .home-icon {
-        position: absolute;
-        top: 15px;
-        left: 15px;
-        font-size: 24px;
-        text-decoration: none;
-        color: #ffcc00;
-        z-index: 10;
-        transition: transform 0.2s;
-    }
-
-    .home-icon:hover {
-        transform: scale(1.1);
-    }
-
     .container {
         width: 100%;
         flex: 1;
@@ -82,26 +66,12 @@
         100% { transform: rotate(360deg); }
     }
 
-    /* Footer */
-    footer {
-        text-align: center;
-        padding: 10px;
-        background: #1a1a1a;
-        font-size: 13px;
-        color: #ccc;
-        border-top: 1px solid #333;
-    }
-
-    footer span {
-        color: #ff4d4d;
-    }
 </style>
     <script src="app-launch.js" defer></script>
 </head>
 <body>
 
 <header>
-    <a href="https://yan-shun-081.github.io/yan-1-website.com/" class="home-icon" title="Home">🏠</a>
     🏏 Live Cricket Scores
     <div class="tagline">Every ball. Every moment.</div>
 </header>
@@ -115,10 +85,6 @@
         loading="lazy">
     </iframe>
 </div>
-
-<footer>
-    © 2026 Live Cricket Scores · Built with <span>❤️</span> by YAN
-</footer>
 
 <script>
     const iframe = document.getElementById("liveFrame");

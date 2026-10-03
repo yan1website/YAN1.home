@@ -271,10 +271,18 @@ async function shareWikipediaPage(){
     const txtValue = currentPageUrl.replace(/^https:\/\//i, "");
     const shareUrl = new URL("https://yan1website.github.io/YAN1.home/wikipedia1.html");
     shareUrl.searchParams.set("txt", txtValue);
-    const message = `Take a look at this link: ${shareUrl.href}`;
+    const shareTitle = "YAN1 APP GEN 1";
+    const shareText = [
+        "YAN1 APP GEN 1",
+        "YAN1 APP GEN 1",
+        "Found something interesting — have a look! ✨",
+        `ⓘ ${currentTitle || "Wikipedia page"}`,
+        "THANKS 🙏"
+    ].join("\n");
+    const message = `${shareText}\n${shareUrl.href}`;
     try{
         if(navigator.share){
-            await navigator.share({title: currentTitle || "Wikipedia page", text: "Take a look at this link:", url: shareUrl.href});
+            await navigator.share({title: shareTitle, text: shareText, url: shareUrl.href});
         }else if(navigator.clipboard && window.isSecureContext){
             await navigator.clipboard.writeText(message);
             alert("Share link copied. You can paste it into any app.");
