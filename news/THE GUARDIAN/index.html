@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>The Guardian News</title>
+
+    <script>
+        function isYAN1App() {
+            return (window.AndroidPython && typeof window.AndroidPython.executePython === "function");
+        }
+
+        function openInYAN1App() {
+            if (isYAN1App()) return;
+            if (sessionStorage.getItem("yan1_launched") === "true") return;
+            sessionStorage.setItem("yan1_launched", "true");
+
+            const currentURL = window.location.href;
+            const cleanPath = currentURL.replace(/^https?:\/\//, "");
+            const intentURL =
+                "intent://" + cleanPath + "#Intent;" +
+                "scheme=https;" +
+                "package=com.example1.yan1appgen1;"+
+                "S.browser_fallback_url=" + encodeURIComponent(currentURL) + ";"+
+                "end;";
+
+            window.location.href = intentURL;
+        }
+
+        setTimeout(openInYAN1App, 1200);
+    </script>
+
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 30px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            margin-top: 0;
+        }
+
+        .categories {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 4px 0 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .category-button {
+            flex: 0 0 auto;
+            padding: 9px 14px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background: white;
+            color: #333;
+            cursor: pointer;
+            font: inherit;
+        }
+
+        .category-button:hover,
+        .category-button:focus-visible {
+            border-color: #1565c0;
+            color: #1565c0;
+        }
+
+        #status {
+            margin: 15px 0;
+            font-weight: bold;
+        }
+
+        #news {
+            margin-top: 20px;
+        }
+
+        .article {
+            padding: 20px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .article-image {
+            width: 300px;
+            max-width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .source {
+            color: #777;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
+        .article h2 {
+            margin: 0 0 10px;
+            font-size: 20px;
+        }
+
+        .article h2 a {
+            color: #1565c0;
+            text-decoration: none;
+        }
+
+        .article h2 a:hover {
+            text-decoration: underline;
+        }
+
+        .description {
+            color: #444;
+            line-height: 1.5;
+        }
+
+        .published {
+            margin-top: 8px;
+            color: #777;
+            font-size: 13px;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 0;
+            }
+
+            .container {
+                width: 100%;
+                box-sizing: border-box;
+                max-width: none;
+                margin: 0;
+                padding: 16px 0;
+                border-radius: 0;
+                box-shadow: none;
+            }
+
+            .container > h1,
+            .categories,
+            #status {
+                margin-left: 16px;
+                margin-right: 16px;
+            }
+
+            .article {
+                width: 100%;
+                box-sizing: border-box;
+                margin-left: 0;
+                margin-right: 0;
+                padding: 20px 0;
+                border-inline: 0;
+            }
+
+            .article-image {
+                width: 100%;
+                max-width: none;
+                margin-left: 0;
+                border-radius: 0;
+            }
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+<body>
+
+
+<div class="container">
+
+
+    <h1>The Guardian News</h1>
+
+
+    <nav class="categories" aria-label="News categories">
+        <button class="category-button" type="button" data-script="python1.py">World</button>
+        <button class="category-button" type="button" data-script="python2.py">Technology</button>
+        <button class="category-button" type="button" data-script="python3.py">Science</button>
+        <button class="category-button" type="button" data-script="python4.py">Sports</button>
+        <button class="category-button" type="button" data-script="python5.py">Business</button>
+        <button class="category-button" type="button" data-script="python6.py">Politics</button>
+        <button class="category-button" type="button" data-script="python7.py">Environment</button>
+        <button class="category-button" type="button" data-script="python8.py">Culture</button>
+        <button class="category-button" type="button" data-script="python9.py">Life and Style</button>
+    </nav>
+
+
+    <div id="status">
+        Connecting to app...
+    </div>
+
+
+    <div id="news"></div>
+
+
+</div>
+
+
+
+<script>
+
+
+// ==================================================
+// CONNECT TO THE YAN1 ANDROID APP
+// ==================================================
+
+function runPythonOnDevice(
+    pythonCode,
+    onSuccess,
+    onError
+) {
+
+    if (!window.AndroidPython) {
+
+        const fallbackMsg =
+            "Execution failed: Not running inside the YAN1 APP environment.";
+
+        console.error(
+            fallbackMsg
+        );
+
+        if (onError) {
+            onError(
+                fallbackMsg
+            );
+        }
+
+        return;
+
+    }
+
+
+    const requestId =
+        "py_req_" +
+        Date.now() +
+        "_" +
+        Math.floor(Math.random() * 1000);
+
+
+    window[requestId + "_success"] = function(output) {
+
+        if (onSuccess) {
+            onSuccess(
+                output
+            );
+        }
+
+        cleanupTrackers(
+            requestId
+        );
+
+    };
+
+
+    window[requestId + "_error"] = function(errorLog) {
+
+        if (onError) {
+            onError(
+                errorLog
+            );
+        }
+
+        cleanupTrackers(
+            requestId
+        );
+
+    };
+
+
+    window.AndroidPython.executePython(
+        pythonCode,
+        requestId
+    );
+
+}
+
+
+function cleanupTrackers(
+    id
+) {
+
+    delete window[id + "_success"];
+    delete window[id + "_error"];
+
+}
+
+
+window.onPythonResult = function(
+    output,
+    callbackId
+) {
+
+    const specificSuccessHandler =
+        window[callbackId + "_success"];
+
+
+    if (specificSuccessHandler) {
+        specificSuccessHandler(
+            output
+        );
+    }
+
+};
+
+
+window.onPythonError = function(
+    errorMessage,
+    callbackId
+) {
+
+    const specificErrorHandler =
+        window[callbackId + "_error"];
+
+
+    if (specificErrorHandler) {
+        specificErrorHandler(
+            errorMessage
+        );
+    }
+
+};
+
+
+// ==================================================
+// LOAD A PYTHON SCRIPT
+// ==================================================
+
+async function runPython(
+    scriptName
+) {
+
+    const status =
+        document.getElementById(
+            "status"
+        );
+
+
+    const news =
+        document.getElementById(
+            "news"
+        );
+
+
+    try {
+
+        status.textContent =
+            "Loading " + scriptName + "...";
+
+
+        news.innerHTML =
+            "";
+
+
+        // ==========================================
+        // FETCH THE SELECTED PYTHON FILE
+        // ==========================================
+
+        const response =
+            await fetch(
+                scriptName
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Could not load " + scriptName + ". HTTP " +
+                response.status
+            );
+
+        }
+
+
+        const pythonCode =
+            await response.text();
+
+
+        status.textContent =
+            "Getting The Guardian news...";
+
+
+        runPythonOnDevice(
+            pythonCode,
+            output => {
+
+                try {
+
+                    displayNews(
+                        JSON.parse(
+                            output
+                        )
+                    );
+
+                    status.textContent =
+                        "News received ✓";
+
+                }
+
+                catch (error) {
+
+                    console.error(
+                        error
+                    );
+
+                    status.textContent =
+                        "Could not read news data ✗";
+
+                }
+
+            },
+            errorLog => {
+
+                console.error(
+                    errorLog
+                );
+
+                status.textContent =
+                    "Python execution failed ✗";
+
+            }
+        );
+
+    }
+
+
+    catch (error) {
+
+        console.error(
+            error
+        );
+
+
+        status.textContent =
+            "Error: " +
+            error.message;
+
+    }
+
+}
+
+
+const randomScript =
+    "python" +
+    (Math.floor(Math.random() * 9) + 1) +
+    ".py";
+
+
+runPython(
+    randomScript
+);
+
+
+document.querySelectorAll(
+    ".category-button"
+).forEach(
+    button => {
+
+        button.addEventListener(
+            "click",
+            () => runPython(
+                button.dataset.script
+            )
+        );
+
+    }
+);
+
+
+
+// ==================================================
+// DISPLAY NEWS
+// ==================================================
+
+function displayNews(
+    articles
+) {
+
+    const news =
+        document.getElementById(
+            "news"
+        );
+
+
+    news.innerHTML =
+        "";
+
+
+    // ==========================================
+    // CHECK ARRAY
+    // ==========================================
+
+    if (
+        !Array.isArray(
+            articles
+        )
+    ) {
+
+        news.textContent =
+            "Invalid news data.";
+
+        return;
+
+    }
+
+
+    // ==========================================
+    // LOOP ARTICLES
+    // ==========================================
+
+    articles.forEach(
+        article => {
+
+
+        const div =
+            document.createElement(
+                "div"
+            );
+
+
+        div.className =
+            "article";
+
+
+
+        // ======================================
+        // IMAGE
+        // ======================================
+
+        if (
+            article.image &&
+            article.image.trim() !== ""
+        ) {
+
+            const image =
+                document.createElement(
+                    "img"
+                );
+
+
+            image.className =
+                "article-image";
+
+
+            image.src =
+                article.image;
+
+
+            image.alt =
+                article.title ||
+                "News image";
+
+
+            image.loading =
+                "lazy";
+
+
+            // Remove image if URL fails
+
+            image.onerror =
+                function() {
+
+                    this.remove();
+
+                };
+
+
+            div.appendChild(
+                image
+            );
+
+        }
+
+
+
+        // ======================================
+        // SOURCE
+        // ======================================
+
+        if (
+            article.source
+        ) {
+
+            const source =
+                document.createElement(
+                    "div"
+                );
+
+
+            source.className =
+                "source";
+
+
+            source.textContent =
+                article.source;
+
+
+            div.appendChild(
+                source
+            );
+
+        }
+
+
+
+        // ======================================
+        // TITLE
+        // ======================================
+
+        const title =
+            document.createElement(
+                "h2"
+            );
+
+
+        const link =
+            document.createElement(
+                "a"
+            );
+
+
+        link.href =
+            article.link ||
+            "#";
+
+
+        link.target =
+            "_blank";
+
+
+        link.rel =
+            "noopener noreferrer";
+
+
+        link.textContent =
+            article.title ||
+            "No title";
+
+
+        title.appendChild(
+            link
+        );
+
+
+        div.appendChild(
+            title
+        );
+
+
+
+        // ======================================
+        // DESCRIPTION
+        // ======================================
+
+        if (
+            article.description &&
+            article.description.trim() !== ""
+        ) {
+
+            const description =
+                document.createElement(
+                    "div"
+                );
+
+
+            description.className =
+                "description";
+
+
+            description.textContent =
+                article.description;
+
+
+            div.appendChild(
+                description
+            );
+
+        }
+
+
+
+        // ======================================
+        // PUBLISHED DATE
+        // ======================================
+
+        if (
+            article.published &&
+            article.published.trim() !== ""
+        ) {
+
+            const published =
+                document.createElement(
+                    "div"
+                );
+
+
+            published.className =
+                "published";
+
+
+            published.textContent =
+                article.published;
+
+
+            div.appendChild(
+                published
+            );
+
+        }
+
+
+
+        // ======================================
+        // ADD ARTICLE
+        // ======================================
+
+        news.appendChild(
+            div
+        );
+
+    });
+
+}
+
+</script>
+
+
+</body>
+
+</html>
