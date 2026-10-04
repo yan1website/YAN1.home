@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>NDTV News</title>
+
+    <script>
+        function isYAN1App() {
+            return (window.AndroidPython && typeof window.AndroidPython.executePython === "function");
+        }
+
+        function openInYAN1App() {
+            if (isYAN1App()) return;
+            if (sessionStorage.getItem("yan1_launched") === "true") return;
+            sessionStorage.setItem("yan1_launched", "true");
+
+            const currentURL = window.location.href;
+            const cleanPath = currentURL.replace(/^https?:\/\//, "");
+            const intentURL =
+                "intent://" + cleanPath + "#Intent;" +
+                "scheme=https;" +
+                "package=com.example1.yan1appgen1;" +
+                "S.browser_fallback_url=" + encodeURIComponent(currentURL) + ";" +
+                "end;";
+
+            window.location.href = intentURL;
+        }
+
+        setTimeout(openInYAN1App, 1200);
+    </script>
+
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 30px;
+        }
+
+
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+
+        h1 {
+            margin-top: 0;
+        }
+
+
+        #status {
+            margin: 15px 0;
+            font-weight: bold;
+        }
+
+
+        #news {
+            margin-top: 20px;
+        }
+
+
+        .article {
+            padding: 18px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+
+        .article-image {
+            width: 300px;
+            max-width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+
+        .article h2 {
+            margin: 0 0 10px;
+            font-size: 20px;
+        }
+
+
+        .article h2 a {
+            color: #1565c0;
+            text-decoration: none;
+        }
+
+
+        .article h2 a:hover {
+            text-decoration: underline;
+        }
+
+
+        .description {
+            color: #444;
+            line-height: 1.5;
+        }
+
+
+        .published {
+            margin-top: 8px;
+            color: #777;
+            font-size: 13px;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 0;
+            }
+
+            .container {
+                width: 100%;
+                max-width: none;
+                padding: 16px 0;
+                border-radius: 0;
+                box-shadow: none;
+            }
+
+            .container > h1,
+            #status {
+                margin-left: 16px;
+                margin-right: 16px;
+            }
+
+            .article {
+                width: 100%;
+                box-sizing: border-box;
+                margin-left: 0;
+                margin-right: 0;
+                padding: 18px 16px;
+                border-left: 0;
+                border-right: 0;
+            }
+
+            .article-image {
+                width: calc(100% + 32px);
+                max-width: none;
+                margin-left: -16px;
+                border-radius: 0;
+            }
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<div class="container">
+
+    <h1>NDTV News</h1>
+
+    <div id="status">
+        Connecting to app...
+    </div>
+
+    <div id="news"></div>
+
+</div>
+
+
+
+<script>
+
+
+// ==================================================
+// ANDROID PYTHON BRIDGE
+// ==================================================
+
+function runPythonOnDevice(pythonCode, onSuccess, onError) {
+
+    if (!window.AndroidPython) {
+
+        const fallbackMsg =
+            "Execution failed: Not running inside the YAN1 APP environment.";
+
+        console.error(fallbackMsg);
+
+        if (onError) {
+            onError(fallbackMsg);
+        }
+
+        return;
+
+    }
+
+    const requestId =
+        "py_req_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+
+    window[requestId + "_success"] = function(output) {
+
+        if (onSuccess) {
+            onSuccess(output);
+        }
+
+        cleanupTrackers(requestId);
+
+    };
+
+    window[requestId + "_error"] = function(errorLog) {
+
+        if (onError) {
+            onError(errorLog);
+        }
+
+        cleanupTrackers(requestId);
+
+    };
+
+    try {
+
+        window.AndroidPython.executePython(
+            pythonCode,
+            requestId
+        );
+
+    }
+
+    catch (error) {
+
+        window[requestId + "_error"](error.message);
+
+    }
+
+}
+
+
+function cleanupTrackers(id) {
+
+    delete window[id + "_success"];
+    delete window[id + "_error"];
+
+}
+
+
+window.onPythonResult = function(output, callbackId) {
+
+    const specificSuccessHandler =
+        window[callbackId + "_success"];
+
+    if (specificSuccessHandler) {
+        specificSuccessHandler(output);
+    }
+
+    else {
+        console.log("Global Catch - Python Output:\n", output);
+    }
+
+};
+
+
+window.onPythonError = function(errorMessage, callbackId) {
+
+    const specificErrorHandler =
+        window[callbackId + "_error"];
+
+    if (specificErrorHandler) {
+        specificErrorHandler(errorMessage);
+    }
+
+    else {
+        console.error("Global Catch - Python Error:\n", errorMessage);
+    }
+
+};
+
+
+// ==================================================
+// LOAD python.py AND SEND IT TO YOUR APP
+// ==================================================
+
+async function runPython() {
+
+    const status =
+        document.getElementById("status");
+
+
+    const news =
+        document.getElementById("news");
+
+
+    try {
+
+        status.textContent =
+            "Loading python.py...";
+
+
+        news.innerHTML =
+            "";
+
+
+        // ------------------------------------------
+        // LOAD python.py
+        // ------------------------------------------
+
+        const response =
+            await fetch("python.py");
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Could not load python.py. HTTP " +
+                response.status
+            );
+
+        }
+
+
+        const pythonCode =
+            await response.text();
+
+
+        status.textContent =
+            "Getting NDTV news...";
+
+        runPythonOnDevice(
+            pythonCode,
+            handlePythonSuccess,
+            handlePythonError
+        );
+
+    }
+
+
+    catch (error) {
+
+        console.error(error);
+
+
+        status.textContent =
+            "Error: " + error.message;
+
+    }
+
+}
+
+
+function handlePythonSuccess(output) {
+
+    try {
+
+        const data =
+            typeof output === "string" ? JSON.parse(output) : output;
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        document.getElementById("status").textContent =
+            "News received";
+
+        displayNews(data.news);
+
+    }
+
+    catch (error) {
+
+        handlePythonError("Could not read news data: " + error.message);
+
+    }
+
+}
+
+
+function handlePythonError(errorMessage) {
+
+    console.error("Python execution failed:", errorMessage);
+
+    document.getElementById("status").textContent =
+        "Python execution failed";
+
+}
+
+
+runPython();
+
+
+
+// ==================================================
+// DISPLAY NEWS
+// ==================================================
+
+function displayNews(articles) {
+
+    const news =
+        document.getElementById("news");
+
+
+    news.innerHTML =
+        "";
+
+
+    // ------------------------------------------
+    // CHECK DATA
+    // ------------------------------------------
+
+    if (!Array.isArray(articles)) {
+
+        news.textContent =
+            "Invalid news data.";
+
+        return;
+
+    }
+
+
+    // ------------------------------------------
+    // DISPLAY ARTICLES
+    // ------------------------------------------
+
+    articles.forEach(article => {
+
+        const div =
+            document.createElement("div");
+
+
+        div.className =
+            "article";
+
+
+        // ======================================
+        // IMAGE
+        // ======================================
+
+        if (
+            article.image &&
+            article.image.trim() !== ""
+        ) {
+
+            const image =
+                document.createElement("img");
+
+
+            image.className =
+                "article-image";
+
+
+            image.src =
+                article.image;
+
+
+            image.alt =
+                article.title || "News image";
+
+
+            image.loading =
+                "lazy";
+
+
+            image.onerror =
+                function() {
+
+                    this.remove();
+
+                };
+
+
+            div.appendChild(image);
+
+        }
+
+
+        // ======================================
+        // TITLE
+        // ======================================
+
+        const title =
+            document.createElement("h2");
+
+
+        const link =
+            document.createElement("a");
+
+
+        link.href =
+            article.link || "#";
+
+
+        link.target =
+            "_blank";
+
+
+        link.rel =
+            "noopener noreferrer";
+
+
+        link.textContent =
+            article.title || "No title";
+
+
+        title.appendChild(link);
+
+
+        div.appendChild(title);
+
+
+        // ======================================
+        // DESCRIPTION
+        // ======================================
+
+        if (
+            article.description &&
+            article.description.trim() !== ""
+        ) {
+
+            const description =
+                document.createElement("div");
+
+
+            description.className =
+                "description";
+
+
+            description.textContent =
+                article.description;
+
+
+            div.appendChild(description);
+
+        }
+
+
+        // ======================================
+        // PUBLISHED
+        // ======================================
+
+        if (
+            article.published &&
+            article.published.trim() !== ""
+        ) {
+
+            const published =
+                document.createElement("div");
+
+
+            published.className =
+                "published";
+
+
+            published.textContent =
+                article.published;
+
+
+            div.appendChild(published);
+
+        }
+
+
+        // ======================================
+        // ADD ARTICLE
+        // ======================================
+
+        news.appendChild(div);
+
+    });
+
+}
+
+</script>
+
+
+</body>
+
+</html>
