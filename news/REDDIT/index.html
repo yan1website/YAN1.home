@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Reddit News</title>
+
+    <script>
+        function isYAN1App() {
+            return (window.AndroidPython && typeof window.AndroidPython.executePython === "function");
+        }
+
+        function openInYAN1App() {
+            if (isYAN1App()) return;
+            if (sessionStorage.getItem("yan1_launched") === "true") return;
+            sessionStorage.setItem("yan1_launched", "true");
+
+            const currentURL = window.location.href;
+            const cleanPath = currentURL.replace(/^https?:\/\//, "");
+            const intentURL =
+                "intent://" + cleanPath + "#Intent;" +
+                "scheme=https;" +
+                "package=com.example1.yan1appgen1;" +
+                "S.browser_fallback_url=" + encodeURIComponent(currentURL) + ";" +
+                "end;";
+
+            window.location.href = intentURL;
+        }
+
+        setTimeout(openInYAN1App, 1200);
+    </script>
+
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+
+        body {
+
+            margin: 0;
+
+            font-family: Arial, sans-serif;
+
+            background: #f2f2f2;
+
+            color: #222;
+        }
+
+
+        /* =====================================================
+           HEADER
+           ===================================================== */
+
+        header {
+
+            background: #ff4500;
+
+            color: white;
+
+            padding: 18px;
+
+            text-align: center;
+        }
+
+
+        header h1 {
+
+            margin: 0;
+
+            font-size: 24px;
+        }
+
+
+        /* =====================================================
+           STATUS
+           ===================================================== */
+
+        #status {
+
+            margin: 15px;
+
+            padding: 12px;
+
+            background: white;
+
+            border-radius: 6px;
+
+            border: 1px solid #ddd;
+
+            text-align: center;
+        }
+
+
+        /* =====================================================
+           POSTS CONTAINER
+           ===================================================== */
+
+        #posts {
+
+            max-width: 900px;
+
+            margin: 20px auto;
+
+            padding: 0 15px;
+        }
+
+
+        /* =====================================================
+           POST
+           ===================================================== */
+
+        .post {
+
+            background: white;
+
+            margin-bottom: 20px;
+
+            padding: 18px;
+
+            border-radius: 8px;
+
+            box-shadow:
+                0 2px 6px rgba(0,0,0,0.08);
+        }
+
+
+        /* =====================================================
+           TITLE
+           ===================================================== */
+
+        .post h2 {
+
+            margin-top: 0;
+
+            margin-bottom: 10px;
+
+            font-size: 20px;
+
+            line-height: 1.4;
+        }
+
+
+        .post h2 a {
+
+            color: #222;
+
+            text-decoration: none;
+        }
+
+
+        .post h2 a:hover {
+
+            text-decoration: underline;
+        }
+
+
+        /* =====================================================
+           IMAGE
+           ===================================================== */
+
+        .post-image {
+
+            display: block;
+
+            width: 100%;
+
+            max-height: 600px;
+
+            object-fit: contain;
+
+            background: #eeeeee;
+
+            border-radius: 8px;
+
+            margin-top: 12px;
+
+            margin-bottom: 15px;
+
+            cursor: pointer;
+        }
+
+
+        /* =====================================================
+           FULLSCREEN IMAGE MODAL
+           ===================================================== */
+
+        #imageModal {
+
+            display: none;
+
+            position: fixed;
+
+            top: 0;
+
+            left: 0;
+
+            width: 100%;
+
+            height: 100%;
+
+            background: rgba(0, 0, 0, 0.9);
+
+            z-index: 10000;
+
+            align-items: center;
+
+            justify-content: center;
+        }
+
+
+        #imageModal.active {
+
+            display: flex;
+        }
+
+
+        .modal-content {
+
+            position: relative;
+
+            max-width: 90vw;
+
+            max-height: 90vh;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+        }
+
+
+        .modal-content img {
+
+            max-width: 100%;
+
+            max-height: 100%;
+
+            object-fit: contain;
+        }
+
+
+        .modal-close {
+
+            position: absolute;
+
+            top: 20px;
+
+            right: 30px;
+
+            font-size: 40px;
+
+            font-weight: bold;
+
+            color: white;
+
+            cursor: pointer;
+
+            background: none;
+
+            border: none;
+
+            padding: 0;
+
+            line-height: 1;
+
+            transition: transform 0.2s;
+        }
+
+
+        .modal-close:hover {
+
+            transform: scale(1.2);
+        }
+
+
+        .image-error {
+
+            display: none;
+
+            background: #eeeeee;
+
+            color: #777;
+
+            padding: 20px;
+
+            text-align: center;
+
+            border-radius: 8px;
+
+            margin-bottom: 15px;
+        }
+
+
+        /* =====================================================
+           DESCRIPTION
+           ===================================================== */
+
+        .description {
+
+            font-size: 16px;
+
+            line-height: 1.6;
+
+            color: #444;
+
+            margin-top: 10px;
+
+            margin-bottom: 15px;
+
+            white-space: pre-wrap;
+
+            word-wrap: break-word;
+        }
+
+
+        /* =====================================================
+           META
+           ===================================================== */
+
+        .meta {
+
+            color: #777;
+
+            font-size: 14px;
+
+            margin-top: 10px;
+
+            margin-bottom: 15px;
+
+            line-height: 1.6;
+        }
+
+
+        /* =====================================================
+           BUTTON
+           ===================================================== */
+
+        .open-button {
+
+            display: inline-block;
+
+            padding: 9px 14px;
+
+            background: #ff4500;
+
+            color: white;
+
+            text-decoration: none;
+
+            border-radius: 5px;
+
+            font-size: 14px;
+        }
+
+
+        .open-button:hover {
+
+            opacity: 0.85;
+        }
+
+
+        /* =====================================================
+           ERROR
+           ===================================================== */
+
+        #error {
+
+            display: none;
+
+            max-width: 900px;
+
+            margin: 20px auto;
+
+            padding: 15px;
+
+            background: #ffe5e5;
+
+            color: #b00000;
+
+            border: 1px solid #ffaaaa;
+
+            border-radius: 6px;
+
+            white-space: pre-wrap;
+        }
+
+
+        /* =====================================================
+           RAW OUTPUT
+           ===================================================== */
+
+        #rawOutput {
+
+            max-width: 900px;
+
+            margin: 20px auto;
+
+            padding: 15px;
+
+            background: #111;
+
+            color: #00ff66;
+
+            border-radius: 8px;
+
+            white-space: pre-wrap;
+
+            overflow-x: auto;
+
+            display: none;
+
+            font-family: Consolas, monospace;
+
+            font-size: 13px;
+        }
+
+
+        /* =====================================================
+           LOADING
+           ===================================================== */
+
+        .loading {
+
+            text-align: center;
+
+            padding: 30px;
+
+            color: #666;
+        }
+
+        @media (max-width: 600px) {
+            #status,
+            #error {
+                margin-left: 0;
+                margin-right: 0;
+                border-left: 0;
+                border-right: 0;
+                border-radius: 0;
+            }
+
+            #posts {
+                width: 100%;
+                max-width: none;
+                margin: 0;
+                padding: 0;
+            }
+
+            .post {
+                width: 100%;
+                margin-bottom: 0;
+                padding: 18px 16px;
+                border-radius: 0;
+                box-shadow: none;
+                border-bottom: 1px solid #ddd;
+                border-left: 0;
+                border-right: 0;
+            }
+
+            .post-image {
+                width: calc(100% + 32px);
+                max-width: none;
+                margin-left: -16px;
+                border-radius: 0;
+            }
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<header>
+
+    <h1>Reddit News</h1>
+
+</header>
+
+
+<div id="status">
+
+    Connecting to local app...
+
+</div>
+
+
+<div id="error"></div>
+
+
+<div id="posts">
+
+    <div class="loading">
+
+        Waiting for Reddit data...
+
+    </div>
+
+</div>
+
+
+<pre id="rawOutput"></pre>
+
+
+<!-- IMAGE FULLSCREEN MODAL -->
+<div id="imageModal" onclick="closeImageModalOnOverlayClick(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closeImageModal()">×</button>
+        <img id="modalImage" src="" alt="Fullscreen image">
+    </div>
+</div>
+
+
+<script>
+
+
+/**
+ * Executes Python code inside the YAN1 Android App runtime environment.
+ * @param {string} pythonCode - The multi-line Python script to execute.
+ * @param {function} onSuccess - Called with the script's standard output.
+ * @param {function} onError - Called with error logs or exception traces.
+ */
+function runPythonOnDevice(pythonCode, onSuccess, onError) {
+
+    if (!window.AndroidPython) {
+
+        const fallbackMsg =
+            "Execution failed: Not running inside the YAN1 APP environment.";
+
+        console.error(fallbackMsg);
+
+        if (onError) {
+            onError(fallbackMsg);
+        }
+
+        return;
+
+    }
+
+
+    const requestId =
+        "py_req_" +
+        Date.now() +
+        "_" +
+        Math.floor(Math.random() * 1000);
+
+
+    window[requestId + "_success"] = function(output) {
+
+        if (onSuccess) {
+            onSuccess(output);
+        }
+
+        cleanupTrackers(requestId);
+
+    };
+
+
+    window[requestId + "_error"] = function(errorLog) {
+
+        if (onError) {
+            onError(errorLog);
+        }
+
+        cleanupTrackers(requestId);
+
+    };
+
+
+    try {
+
+        window.AndroidPython.executePython(
+            pythonCode,
+            requestId
+        );
+
+    }
+
+    catch (error) {
+
+        cleanupTrackers(requestId);
+
+        if (onError) {
+            onError(error.message);
+        }
+
+    }
+
+}
+
+
+function cleanupTrackers(id) {
+
+    delete window[id + "_success"];
+    delete window[id + "_error"];
+
+}
+
+
+window.onPythonResult = function(output, callbackId) {
+
+    const specificSuccessHandler =
+        window[callbackId + "_success"];
+
+    if (specificSuccessHandler) {
+        specificSuccessHandler(output);
+    }
+
+    else {
+        console.log(
+            "Global Catch - Python Output:\n",
+            output
+        );
+    }
+
+};
+
+
+window.onPythonError = function(errorMessage, callbackId) {
+
+    const specificErrorHandler =
+        window[callbackId + "_error"];
+
+    if (specificErrorHandler) {
+        specificErrorHandler(errorMessage);
+    }
+
+    else {
+        console.error(
+            "Global Catch - Python Error:\n",
+            errorMessage
+        );
+    }
+
+};
+
+
+async function loadPythonAndRun() {
+
+    setStatus(
+        "Connected to YAN1 app. Loading python.py..."
+    );
+
+
+    try {
+
+        const response = await fetch(
+            "python.py"
+        );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Could not load python.py. HTTP status: " +
+                response.status
+            );
+
+        }
+
+
+        const pythonCode = await response.text();
+
+
+        if (!pythonCode.trim()) {
+
+            throw new Error(
+                "python.py is empty."
+            );
+
+        }
+
+
+        setStatus(
+            "python.py sent to YAN1 app. Waiting for Reddit..."
+        );
+
+
+        runPythonOnDevice(
+            pythonCode,
+            function(output) {
+
+                setStatus(
+                    "Python execution completed."
+                );
+
+                displayPythonOutput(output ?? "");
+
+            },
+            function(errorLog) {
+
+                showError(
+                    errorLog ||
+                    "Unknown Python execution error."
+                );
+
+            }
+        );
+
+    }
+
+    catch (error) {
+
+        showError(
+            error.message
+        );
+
+    }
+
+}
+
+
+loadPythonAndRun();
+
+
+
+// ============================================================
+// PROCESS PYTHON OUTPUT
+// ============================================================
+
+function displayPythonOutput(output) {
+
+
+    // --------------------------------------------------------
+    // TRY TO PARSE PYTHON JSON
+    // --------------------------------------------------------
+
+    let data;
+
+
+    try {
+
+        data = JSON.parse(
+            output
+        );
+
+    }
+
+    catch (error) {
+
+        document.getElementById(
+            "posts"
+        ).innerHTML = "";
+
+
+        document.getElementById(
+            "rawOutput"
+        ).style.display = "block";
+
+
+        document.getElementById(
+            "rawOutput"
+        ).textContent =
+            output;
+
+
+        showError(
+            "Python returned output, but it was not valid JSON."
+        );
+
+
+        return;
+
+    }
+
+
+
+    // --------------------------------------------------------
+    // REDDIT ERROR
+    // --------------------------------------------------------
+
+    if (
+        data.success === false
+    ) {
+
+        document.getElementById(
+            "posts"
+        ).innerHTML = "";
+
+
+        showError(
+            "Reddit request failed.\n\n" +
+            JSON.stringify(
+                data,
+                null,
+                2
+            )
+        );
+
+
+        return;
+
+    }
+
+
+
+    // --------------------------------------------------------
+    // MAKE SURE POSTS ARRAY EXISTS
+    // --------------------------------------------------------
+
+    if (
+        !Array.isArray(data.posts)
+    ) {
+
+        showError(
+            "JSON was received, but no posts array was found.\n\n" +
+            JSON.stringify(
+                data,
+                null,
+                2
+            )
+        );
+
+
+        return;
+
+    }
+
+
+
+    // --------------------------------------------------------
+    // DISPLAY POSTS
+    // --------------------------------------------------------
+
+    const postsContainer =
+        document.getElementById(
+            "posts"
+        );
+
+
+    postsContainer.innerHTML = "";
+
+
+    if (
+        data.posts.length === 0
+    ) {
+
+        postsContainer.innerHTML =
+            '<div class="loading">' +
+            'No Reddit posts found.' +
+            '</div>';
+
+
+        return;
+
+    }
+
+
+
+    data.posts.forEach(
+        function(post) {
+
+
+            // =================================================
+            // CREATE ARTICLE
+            // =================================================
+
+            const article =
+                document.createElement(
+                    "article"
+                );
+
+
+            article.className =
+                "post";
+
+
+
+            // =================================================
+            // TITLE
+            // =================================================
+
+            const title =
+                document.createElement(
+                    "h2"
+                );
+
+
+            const titleLink =
+                document.createElement(
+                    "a"
+                );
+
+
+            titleLink.href =
+                post.url || "#";
+
+
+            titleLink.target =
+                "_blank";
+
+
+            titleLink.rel =
+                "noopener noreferrer";
+
+
+            titleLink.textContent =
+                post.title ||
+                "Untitled post";
+
+
+            title.appendChild(
+                titleLink
+            );
+
+
+            article.appendChild(
+                title
+            );
+
+
+
+            // =================================================
+            // IMAGE
+            // =================================================
+
+            if (
+                post.image_url &&
+                post.image_url.trim() !== ""
+            ) {
+
+                const image =
+                    document.createElement(
+                        "img"
+                    );
+
+
+                image.className =
+                    "post-image";
+
+
+                image.src =
+                    post.image_url;
+
+
+                image.alt =
+                    post.title ||
+                    "Reddit image";
+
+
+                image.loading =
+                    "lazy";
+
+
+                image.referrerPolicy =
+                    "no-referrer";
+
+
+                // ---------------------------------------------
+                // IMAGE CLICK
+                // ---------------------------------------------
+
+                image.onclick =
+                    function() {
+
+                        openImageModal(
+                            post.image_url
+                        );
+
+                    };
+
+
+                // ---------------------------------------------
+                // IMAGE ERROR
+                // ---------------------------------------------
+
+                const imageError =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                imageError.className =
+                    "image-error";
+
+
+                imageError.textContent =
+                    "Image could not be loaded.";
+
+
+                image.onerror =
+                    function() {
+
+                        image.style.display =
+                            "none";
+
+
+                        imageError.style.display =
+                            "block";
+
+                    };
+
+
+                article.appendChild(
+                    image
+                );
+
+
+                article.appendChild(
+                    imageError
+                );
+
+            }
+
+
+
+            // =================================================
+            // DESCRIPTION
+            // =================================================
+
+            if (
+                post.description &&
+                post.description.trim() !== ""
+            ) {
+
+                const description =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                description.className =
+                    "description";
+
+
+                description.textContent =
+                    post.description;
+
+
+                article.appendChild(
+                    description
+                );
+
+            }
+
+
+
+            // =================================================
+            // METADATA
+            // =================================================
+
+            const meta =
+                document.createElement(
+                    "div"
+                );
+
+
+            meta.className =
+                "meta";
+
+
+            const subreddit =
+                post.subreddit ||
+                data.subreddit ||
+                "unknown";
+
+
+            const author =
+                post.author ||
+                "[deleted]";
+
+
+            let metaText =
+                "r/" +
+                subreddit +
+                " • u/" +
+                author;
+
+
+            // -------------------------------------------------
+            // PUBLISHED DATE
+            // -------------------------------------------------
+
+            if (
+                post.published
+            ) {
+
+                let dateText =
+                    post.published;
+
+
+                try {
+
+                    const date =
+                        new Date(
+                            post.published
+                        );
+
+
+                    if (
+                        !isNaN(
+                            date.getTime()
+                        )
+                    ) {
+
+                        dateText =
+                            date.toLocaleString();
+
+                    }
+
+                }
+
+                catch (error) {
+
+                    // Keep original date
+
+                }
+
+
+                metaText +=
+                    " • Published: " +
+                    dateText;
+
+            }
+
+
+            // -------------------------------------------------
+            // UPDATED DATE
+            // -------------------------------------------------
+
+            if (
+                post.updated &&
+                post.updated !==
+                post.published
+            ) {
+
+                let updatedText =
+                    post.updated;
+
+
+                try {
+
+                    const updatedDate =
+                        new Date(
+                            post.updated
+                        );
+
+
+                    if (
+                        !isNaN(
+                            updatedDate.getTime()
+                        )
+                    ) {
+
+                        updatedText =
+                            updatedDate.toLocaleString();
+
+                    }
+
+                }
+
+                catch (error) {
+
+                    // Keep original date
+
+                }
+
+
+                metaText +=
+                    " • Updated: " +
+                    updatedText;
+
+            }
+
+
+            meta.textContent =
+                metaText;
+
+
+
+            article.appendChild(
+                meta
+            );
+
+
+
+            // =================================================
+            // OPEN REDDIT BUTTON
+            // =================================================
+
+            if (
+                post.url
+            ) {
+
+                const button =
+                    document.createElement(
+                        "a"
+                    );
+
+
+                button.className =
+                    "open-button";
+
+
+                button.href =
+                    post.url;
+
+
+                button.target =
+                    "_blank";
+
+
+                button.rel =
+                    "noopener noreferrer";
+
+
+                button.textContent =
+                    "Open on Reddit";
+
+
+                article.appendChild(
+                    button
+                );
+
+            }
+
+
+
+            // =================================================
+            // ADD POST TO PAGE
+            // =================================================
+
+            postsContainer.appendChild(
+                article
+            );
+
+        }
+    );
+
+
+
+    // ========================================================
+    // STATUS
+    // ========================================================
+
+    setStatus(
+        "Received " +
+        data.posts.length +
+        " Reddit posts."
+    );
+
+}
+
+
+
+// ============================================================
+// SET STATUS
+// ============================================================
+
+function setStatus(message) {
+
+
+    document.getElementById(
+        "status"
+    ).textContent =
+        message;
+
+}
+
+
+
+// ============================================================
+// SHOW ERROR
+// ============================================================
+
+function showError(message) {
+
+
+    const errorBox =
+        document.getElementById(
+            "error"
+        );
+
+
+    errorBox.style.display =
+        "block";
+
+
+    errorBox.textContent =
+        message;
+
+
+    setStatus(
+        "Error"
+    );
+
+}
+
+
+
+// ============================================================
+// OPEN IMAGE MODAL
+// ============================================================
+
+function openImageModal(imageUrl) {
+
+
+    const modal =
+        document.getElementById(
+            "imageModal"
+        );
+
+
+    const modalImage =
+        document.getElementById(
+            "modalImage"
+        );
+
+
+    modalImage.src =
+        imageUrl;
+
+
+    modal.classList.add(
+        "active"
+    );
+
+}
+
+
+
+// ============================================================
+// CLOSE IMAGE MODAL
+// ============================================================
+
+function closeImageModal() {
+
+
+    const modal =
+        document.getElementById(
+            "imageModal"
+        );
+
+
+    modal.classList.remove(
+        "active"
+    );
+
+
+    const modalImage =
+        document.getElementById(
+            "modalImage"
+        );
+
+
+    modalImage.src =
+        "";
+
+}
+
+
+
+// ============================================================
+// CLOSE MODAL ON OVERLAY CLICK
+// ============================================================
+
+function closeImageModalOnOverlayClick(event) {
+
+
+    if (
+        event.target.id === "imageModal"
+    ) {
+
+        closeImageModal();
+
+    }
+
+}
+
+
+
+// ============================================================
+// CLOSE MODAL ON ESC KEY
+// ============================================================
+
+document.addEventListener(
+    "keydown",
+    function(event) {
+
+
+        if (
+            event.key === "Escape"
+        ) {
+
+            closeImageModal();
+
+        }
+
+    }
+);
+
+
+</script>
+
+
+</body>
+
+</html>
