@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title></title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+
+            background: #0f0f0f;
+
+            color: white;
+
+            font-family: Arial, sans-serif;
+        }
+
+
+        header {
+
+            position: sticky;
+
+            top: 0;
+
+            z-index: 100;
+
+            background: #0f0f0f;
+
+            border-bottom: 1px solid #333;
+
+            padding: 18px;
+
+            text-align: center;
+        }
+
+
+        header h1 {
+
+            margin: 0;
+
+            font-size: 24px;
+
+        }
+
+
+        #status {
+
+            text-align: center;
+
+            color: #aaa;
+
+            padding: 20px;
+
+        }
+
+
+        #videos {
+
+            width: 100%;
+
+            max-width: 900px;
+
+            margin: auto;
+
+            padding: 20px;
+
+        }
+
+
+        .video-card {
+
+            background: #181818;
+
+            border-radius: 12px;
+
+            overflow: hidden;
+
+            margin-bottom: 30px;
+
+            border: 1px solid #292929;
+
+        }
+
+
+        .video-container {
+
+            width: 100%;
+
+            aspect-ratio: 16 / 9;
+
+            background: black;
+
+            overflow: hidden;
+
+        }
+
+
+        iframe {
+
+            width: 100%;
+
+            height: 100%;
+
+            border: 0;
+
+            display: block;
+
+        }
+
+
+        .thumbnail-link {
+
+            display: block;
+
+            width: 100%;
+
+            height: 100%;
+
+        }
+
+
+        .thumbnail {
+
+            display: block;
+
+            width: 100%;
+
+            height: 100%;
+
+            object-fit: cover;
+
+        }
+
+
+        .video-info {
+
+            padding: 15px;
+
+        }
+
+
+        .video-title {
+
+            font-size: 18px;
+
+            font-weight: bold;
+
+            line-height: 1.4;
+
+        }
+
+
+        .video-date {
+
+            color: #888;
+
+            font-size: 13px;
+
+            margin-top: 8px;
+
+        }
+
+
+        .video-actions {
+
+            display: flex;
+
+            flex-wrap: wrap;
+
+            align-items: center;
+
+            gap: 12px;
+
+            margin-top: 12px;
+
+        }
+
+
+        .share-button {
+
+            border: 1px solid #555;
+
+            border-radius: 6px;
+
+            padding: 7px 10px;
+
+            background: #242424;
+
+            color: white;
+
+            font: inherit;
+
+            cursor: pointer;
+
+        }
+
+
+        .share-button:hover {
+
+            background: #333;
+
+        }
+
+
+        .share-link {
+
+            min-width: 0;
+
+            overflow-wrap: anywhere;
+
+            color: #9ac7ff;
+
+            font-size: 13px;
+        }
+
+        .share-message {
+
+            flex-basis: 100%;
+
+            margin: 0;
+
+            white-space: pre-line;
+
+        }
+
+
+        #loader {
+
+            display: none;
+
+            text-align: center;
+
+            padding: 30px;
+
+            color: #aaa;
+
+        }
+
+
+        .spinner {
+
+            width: 35px;
+
+            height: 35px;
+
+            margin: auto;
+
+            margin-bottom: 10px;
+
+            border: 4px solid #333;
+
+            border-top: 4px solid white;
+
+            border-radius: 50%;
+
+            animation: spin 0.8s linear infinite;
+
+        }
+
+
+        @keyframes spin {
+
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+
+        }
+
+
+        .error {
+
+            padding: 30px;
+
+            text-align: center;
+
+            color: #ff7777;
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<div id="status">
+    Connecting to YAN1 App...
+</div>
+
+
+<div id="videos"></div>
+
+
+<div id="loader">
+
+    <div class="spinner"></div>
+
+    Loading videos...
+
+</div>
+
+
+<script>
+
+
+function isYAN1App() {
+    return Boolean(
+        window.AndroidPython &&
+        typeof window.AndroidPython.executePython === "function"
+    );
+}
+
+
+function openInYAN1App() {
+    if (isYAN1App()) return;
+
+    try {
+        if (sessionStorage.getItem("yan1_launched") === "true") return;
+        sessionStorage.setItem("yan1_launched", "true");
+    } catch (error) {
+        console.warn("Unable to check YAN1 launch state:", error);
+    }
+
+    const currentURL = window.location.href;
+    const cleanPath = currentURL.replace(/^https?:\/\//, "");
+    const intentURL =
+        "intent://" + cleanPath + "#Intent;" +
+        "scheme=https;" +
+        "package=com.example1.yan1appgen1;" +
+        "S.browser_fallback_url=" + encodeURIComponent(currentURL) + ";" +
+        "end;";
+
+    window.location.href = intentURL;
+}
+
+
+setTimeout(openInYAN1App, 1200);
+
+
+/*
+============================================================
+PYTHON CODE
+============================================================
+
+This is the same logic contained
+in python.py.
+
+YAN1 App executes this code.
+============================================================
+*/
+
+const pythonCode = `
+
+import requests
+import feedparser
+import json
+import random
+
+SHEET_ID = "1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M"
+SHEET_QUERY_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    + SHEET_ID
+    + "/gviz/tq"
+)
+
+
+def sheet_query(query):
+
+    response = requests.get(
+        SHEET_QUERY_URL,
+        params={
+            "tqx": "out:json",
+            "tq": query
+        },
+        timeout=15
+    )
+
+    response.raise_for_status()
+
+    payload = response.text
+    payload = payload[payload.index("{"):payload.rindex("}") + 1]
+
+    return json.loads(payload)
+
+
+def get_random_channel_id():
+
+    count_data = sheet_query("select count(H) where H is not null")
+    count_cell = count_data["table"]["rows"][0]["c"][0]
+    channel_count = int(count_cell.get("v", 0)) if count_cell else 0
+
+    if channel_count == 0:
+        raise ValueError("Column H does not contain any channel IDs")
+
+    random_offset = random.randrange(channel_count)
+    channel_data = sheet_query(
+        "select H where H is not null limit 1 offset "
+        + str(random_offset)
+    )
+    channel_cell = channel_data["table"]["rows"][0]["c"][0]
+    channel_id = str(channel_cell.get("v", "")).strip() if channel_cell else ""
+
+    if not channel_id:
+        raise ValueError("Selected row in column H is empty")
+
+    return channel_id, random_offset
+
+try:
+
+    channel_id, random_offset = get_random_channel_id()
+    rss_url = (
+        "https://www.youtube.com/feeds/videos.xml"
+        "?channel_id=" + channel_id
+    )
+
+    response = requests.get(
+        rss_url,
+        headers={
+            "User-Agent": "Mozilla/5.0"
+        },
+        timeout=15
+    )
+
+    response.raise_for_status()
+
+    feed = feedparser.parse(
+        response.content
+    )
+
+    videos = []
+
+    for entry in feed.entries:
+
+        video_id = entry.get(
+            "yt_videoid"
+        )
+
+        if not video_id:
+            continue
+
+        videos.append({
+            "id": video_id,
+
+            "title": entry.get(
+                "title",
+                "Untitled"
+            ),
+
+            "published": entry.get(
+                "published",
+                ""
+            ),
+
+            "url":
+                "https://www.youtube.com/watch?v="
+                + video_id,
+
+            "embed_url":
+                "https://www.youtube.com/embed/"
+                + video_id
+        })
+
+
+    print(
+        json.dumps({
+            "success": True,
+            "videos": videos,
+            "selected_offset": random_offset,
+            "selected_channel_id": channel_id
+        })
+    )
+
+except Exception as e:
+
+    print(
+        json.dumps({
+            "success": False,
+            "error": str(e)
+        })
+    )
+
+`;
+
+
+/*
+============================================================
+PYTHON RESULT
+============================================================
+*/
+
+function handlePythonResult(output) {
+
+    try {
+
+        /*
+        Python printed JSON.
+        */
+
+        const data =
+            JSON.parse(output);
+
+
+        if (!data.success) {
+
+            showError(
+                data.error ||
+                "Python request failed"
+            );
+
+            return;
+
+        }
+
+
+        const videos =
+            data.videos || [];
+
+
+        document.getElementById(
+            "status"
+        ).textContent =
+            videos.length +
+            " videos received";
+
+
+        /*
+        Display videos
+        */
+
+        displayVideos(
+            videos
+        );
+
+    }
+    catch (error) {
+
+        console.error(
+            "Cannot parse Python output:",
+            error
+        );
+
+
+        showError(
+            "Unable to read Python result"
+        );
+
+    }
+
+}
+
+
+/*
+============================================================
+DISPLAY VIDEOS
+============================================================
+*/
+
+function displayVideos(videos) {
+
+    const container =
+        document.getElementById(
+            "videos"
+        );
+
+
+    container.innerHTML = "";
+
+
+    videos.forEach(
+        function(video) {
+
+            createVideoCard(
+                video
+            );
+
+        }
+    );
+
+
+    document.getElementById(
+        "loader"
+    ).style.display =
+        "none";
+
+}
+
+
+/*
+============================================================
+CREATE VIDEO CARD
+============================================================
+*/
+
+function createVideoCard(video) {
+
+    const card =
+        document.createElement(
+            "div"
+        );
+
+
+    card.className =
+        "video-card";
+
+
+    const thumbnailLink =
+        document.createElement(
+            "a"
+        );
+
+
+    thumbnailLink.href =
+        video.embed_url;
+
+
+    const thumbnail =
+        document.createElement(
+            "img"
+        );
+
+
+    thumbnail.src =
+        "https://i.ytimg.com/vi/" +
+        video.id +
+        "/hqdefault.jpg";
+
+
+    thumbnail.alt =
+        video.title;
+
+
+    thumbnail.loading =
+        "lazy";
+
+
+    thumbnail.className =
+        "thumbnail";
+
+
+    thumbnailLink.appendChild(
+        thumbnail
+    );
+
+
+    thumbnailLink.addEventListener(
+        "click",
+        function(event) {
+
+            event.preventDefault();
+
+            const iframe =
+                document.createElement(
+                    "iframe"
+                );
+
+            iframe.src =
+                video.embed_url +
+                "?autoplay=1&rel=0&modestbranding=1";
+
+            iframe.title =
+                video.title;
+
+            iframe.allow =
+                "accelerometer; autoplay; clipboard-write; " +
+                "encrypted-media; gyroscope; picture-in-picture; web-share";
+
+            iframe.allowFullscreen =
+                true;
+
+            videoContainer.replaceChildren(
+                iframe
+            );
+
+        }
+    );
+
+
+    const videoContainer =
+        document.createElement(
+            "div"
+        );
+
+
+    videoContainer.className =
+        "video-container";
+
+
+    videoContainer.appendChild(
+        thumbnailLink
+    );
+
+
+    const info =
+        document.createElement(
+            "div"
+        );
+
+
+    info.className =
+        "video-info";
+
+
+    const title =
+        document.createElement(
+            "div"
+        );
+
+
+    title.className =
+        "video-title";
+
+
+    title.textContent =
+        video.title;
+
+
+    const date =
+        document.createElement(
+            "div"
+        );
+
+
+    date.className =
+        "video-date";
+
+
+    if (video.published) {
+
+        date.textContent =
+            new Date(
+                video.published
+            ).toLocaleDateString();
+
+    }
+
+
+    const actions =
+        document.createElement(
+            "div"
+        );
+
+
+    actions.className =
+        "video-actions";
+
+
+    const shareButton =
+        document.createElement(
+            "button"
+        );
+
+
+    shareButton.type =
+        "button";
+
+
+    shareButton.className =
+        "share-button";
+
+
+    shareButton.textContent =
+        "ᯓ➤";
+
+
+    shareButton.setAttribute(
+        "aria-label",
+        "Share this video"
+    );
+
+
+    const shareLink =
+        document.createElement(
+            "a"
+        );
+
+    const shareMessage =
+        document.createElement(
+            "p"
+        );
+
+
+    shareMessage.className =
+        "share-message";
+
+
+    shareMessage.hidden =
+        true;
+
+
+    shareLink.className =
+        "share-link";
+
+
+    shareLink.hidden =
+        true;
+
+
+    shareButton.addEventListener(
+        "click",
+        async function() {
+
+            const youtubeUrl =
+                video.url ||
+                "https://www.youtube.com/watch?v=" + video.id;
+
+            const youtubePath =
+                youtubeUrl.replace(/^https?:\/\//i, "");
+
+            const permanentUrl =
+                "https://yan1website.github.io/YAN1.home/youtube/index1.html?" +
+                new URLSearchParams({
+                    txt: youtubePath,
+                    title: video.title
+                }).toString();
+
+            const shareMessageText =
+                "YAN1 APP GEN 1\n" +
+                "YAN1 APP GEN 1\n" +
+                "Found something interesting — have a look! ✨\n" +
+                "🎬 " + video.title + "\n" +
+                "THANKS 🙏";
+
+            const shareText =
+                shareMessageText + "\n" + permanentUrl;
+
+            shareLink.href =
+                permanentUrl;
+
+            shareLink.textContent =
+                permanentUrl;
+
+            shareLink.hidden =
+                false;
+
+            shareMessage.textContent =
+                shareMessageText;
+
+            shareMessage.hidden =
+                false;
+
+            try {
+
+                if (navigator.share) {
+                    await navigator.share({
+                        text: shareMessageText,
+                        url: permanentUrl
+                    });
+                } else if (navigator.clipboard) {
+                    await navigator.clipboard.writeText(shareText);
+                    shareButton.title = "Share message copied";
+                } else {
+                    shareButton.title = "Permanent link generated below";
+                }
+
+            } catch (error) {
+
+                if (error.name !== "AbortError") {
+                    shareButton.title = "Permanent link generated below";
+                }
+
+            }
+
+        }
+    );
+
+
+    actions.appendChild(
+        shareButton
+    );
+
+    actions.appendChild(
+        shareMessage
+    );
+
+
+    actions.appendChild(
+        shareLink
+    );
+
+
+    info.appendChild(
+        title
+    );
+
+
+    info.appendChild(
+        date
+    );
+
+
+    info.appendChild(
+        actions
+    );
+
+
+    card.appendChild(
+        videoContainer
+    );
+
+
+    card.appendChild(
+        info
+    );
+
+
+    document.getElementById(
+        "videos"
+    ).appendChild(
+        card
+    );
+
+}
+
+
+/*
+============================================================
+ERROR
+============================================================
+*/
+
+function showError(message) {
+
+    document.getElementById(
+        "status"
+    ).textContent =
+        "Error";
+
+
+    document.getElementById(
+        "videos"
+    ).innerHTML =
+
+        `<div class="error">
+            ${escapeHTML(message)}
+        </div>`;
+
+}
+
+
+/*
+============================================================
+HTML ESCAPE
+============================================================
+*/
+
+function escapeHTML(value) {
+
+    return String(value)
+
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+
+        .replace(
+            /</g,
+            "&lt;"
+        )
+
+        .replace(
+            />/g,
+            "&gt;"
+        )
+
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
+
+
+/**
+ * Executes Python code inside the YAN1 Android App runtime environment.
+ * @param {string} pythonCode - The multi-line Python script to execute.
+ * @param {function} onSuccess - Receives standard output from the script.
+ * @param {function} onError - Receives error logs or exception traces.
+ */
+function runPythonOnDevice(pythonCode, onSuccess, onError) {
+    if (!window.AndroidPython) {
+        const fallbackMsg =
+            "Execution failed: Not running inside the YAN1 APP environment.";
+
+        console.error(fallbackMsg);
+
+        if (onError) {
+            onError(fallbackMsg);
+        }
+
+        return;
+    }
+
+    const requestId =
+        "py_req_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+
+    window[requestId + "_success"] = function(output) {
+        if (onSuccess) {
+            onSuccess(output);
+        }
+
+        cleanupTrackers(requestId);
+    };
+
+    window[requestId + "_error"] = function(errorLog) {
+        if (onError) {
+            onError(errorLog);
+        }
+
+        cleanupTrackers(requestId);
+    };
+
+    window.AndroidPython.executePython(pythonCode, requestId);
+}
+
+function cleanupTrackers(id) {
+    delete window[id + "_success"];
+    delete window[id + "_error"];
+}
+
+window.onPythonResult = function(output, callbackId) {
+    const specificSuccessHandler = window[callbackId + "_success"];
+
+    if (specificSuccessHandler) {
+        specificSuccessHandler(output);
+    } else {
+        console.log("Global Catch - Python Output:\n", output);
+    }
+};
+
+window.onPythonError = function(errorMessage, callbackId) {
+    const specificErrorHandler = window[callbackId + "_error"];
+
+    if (specificErrorHandler) {
+        specificErrorHandler(errorMessage);
+    } else {
+        console.error("Global Catch - Python Error:\n", errorMessage);
+    }
+};
+
+document.getElementById("status").textContent = "Requesting videos...";
+
+runPythonOnDevice(
+    pythonCode,
+    handlePythonResult,
+    function(errorMessage) {
+        showError(
+            errorMessage ||
+            "Could not execute Python in the YAN1 App."
+        );
+    }
+);
+
+
+</script>
+
+</body>
+
+</html>
