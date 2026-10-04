@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Random GitHub Link</title>
+	<style>
+		:root { font-family: Arial, sans-serif; color: #1f2937; background: #f4f7fb; }
+		body { min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+		main { max-width: 980px; margin: 24px auto; }
+		.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+		#repo-results { margin-top: 18px; }
+		.repo { margin: 20px 0; padding: 22px 24px; border: 1px solid #dfe7f1; border-left: 0; border-right: 0; border-radius: 0; background: #fff; box-shadow: 0 10px 25px rgba(15,23,42,.06); }
+		.repo h2 { margin: 0 0 10px; font-size: 1.4rem; overflow-wrap: anywhere; }
+		.repo .meta { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+		.repo .tag { padding: 6px 10px; border: 1px solid #dfe7f1; border-radius: 999px; background: #f8fafc; color: #5b6475; font-size: .82rem; }
+		.repo p { margin: 10px 0; line-height: 1.6; overflow-wrap: anywhere; }
+		.label { color: #5b6475; font-weight: 700; }
+		a { color: #2563eb; font-weight: 700; text-decoration: none; }
+		a:hover { text-decoration: underline; }
+		.actions { display: flex; justify-content: center; margin-top: 16px; }
+		.share-button { padding: 6px 9px; border: 0; border-radius: 8px; color: white; background: #2563eb; cursor: pointer; font-size: 14px; line-height: 1; }
+		.share-button:disabled { cursor: not-allowed; opacity: .5; }
+		.error { color: #a32918 !important; }
+		@media (max-width: 640px) { body { padding: 0; } .repo { padding: 18px; } }
+	</style>
+	<script src="app-launch.js" defer></script>
+</head>
+<body>
+	<main>
+		<p id="status" class="visually-hidden" role="status" aria-live="polite">Checking the sheet…</p>
+		<button id="share-button" class="share-button" type="button" aria-label="Share repository" disabled hidden>➤</button>
+		<div id="repo-results"></div>
+	</main>
+	<script>
+		const SHEET_ID = '1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M';
+		const status = document.querySelector('#status');
+		const repoResults = document.querySelector('#repo-results');
+		const shareButton = document.querySelector('#share-button');
+		let selectedRepoPath = '';
+
+		function sheetQueryUrl(query) {
+			const params = new URLSearchParams({ tqx: 'out:json', tq: query });
+			return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`;
+		}
+
+		async function querySheet(query) {
+			const response = await fetch(sheetQueryUrl(query), { cache: 'no-store' });
+			if (!response.ok) throw new Error(`Google Sheets request failed (${response.status}).`);
+			const text = await response.text();
+			const start = text.indexOf('{');
+			const end = text.lastIndexOf('}');
+			if (start < 0 || end < start) throw new Error('The sheet returned an invalid response.');
+			const result = JSON.parse(text.slice(start, end + 1));
+			if (result.status !== 'ok') throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed.');
+			return result.table;
+		}
+
+		async function showRandomColumnLValue() {
+			try {
+				// Request only the count, then only the selected cell.
+				const countTable = await querySheet('select count(L) where L is not null');
+				const rowCount = Number(countTable.rows?.[0]?.c?.[0]?.v || 0);
+				if (!Number.isInteger(rowCount) || rowCount < 1) {
+					throw new Error('No values were found in column L.');
+				}
+
+				const randomOffset = Math.floor(Math.random() * rowCount);
+				const valueTable = await querySheet(`select L where L is not null limit 1 offset ${randomOffset}`);
+				const cell = valueTable.rows?.[0]?.c?.[0];
+				if (!cell) throw new Error('Could not read the randomly selected value from column L.');
+
+				const value = String(cell.f ?? cell.v ?? '').trim();
+				selectedRepoPath = value.replace(/^https?:\/\/(?:www\.)?github\.com\//i, '').replace(/\/$/, '').replace(/\.git$/i, '');
+				shareButton.disabled = !selectedRepoPath;
+				status.textContent = `Selected a random value from ${rowCount} nonempty rows in column L. Loading repository…`;
+				await loadRepository(selectedRepoPath);
+			} catch (error) {
+				status.textContent = error.message || 'Unable to read the sheet or repository right now.';
+				status.classList.add('error');
+			}
+		}
+
+		async function shareRepository() {
+			if (!selectedRepoPath) return;
+			const url = new URL('https://yan1website.github.io/YAN1.home/github2.html');
+			url.searchParams.set('txt', selectedRepoPath);
+			const text = `YAN1 APP GEN 1\nYAN1 APP GEN 1\nFound something interesting — have a look! ✨\n📂 ${selectedRepoPath}\nTHANKS 🙏`;
+			try {
+				if (navigator.share) {
+					await navigator.share({ title: selectedRepoPath, text, url: url.href });
+				} else if (navigator.clipboard && window.isSecureContext) {
+					await navigator.clipboard.writeText(`${text}\n${url.href}`);
+					alert('Share message and link copied. You can paste them into any app.');
+				} else {
+					window.prompt('Copy this share message and link:', `${text}\n${url.href}`);
+				}
+			} catch (error) {
+				if (error.name !== 'AbortError') window.prompt('Copy this share message and link:', `${text}\n${url.href}`);
+			}
+		}
+
+		function addText(parent, tag, text, className) {
+			const element = document.createElement(tag);
+			if (className) element.className = className;
+			element.textContent = text;
+			parent.append(element);
+			return element;
+		}
+
+		function addLabeledLine(parent, labelText, value) {
+			const line = document.createElement('p');
+			const label = document.createElement('span');
+			label.className = 'label';
+			label.textContent = `${labelText}: `;
+			line.append(label, document.createTextNode(value));
+			parent.append(line);
+		}
+
+		async function loadRepository(repoPath) {
+			if (!/^[^/]+\/[^/]+$/.test(repoPath)) throw new Error('The selected column L value must be a GitHub owner/repository path or URL.');
+			const apiPath = repoPath.split('/').map(encodeURIComponent).join('/');
+			const response = await fetch(`https://api.github.com/repos/${apiPath}`, {
+				headers: { Accept: 'application/vnd.github+json' }
+			});
+			if (!response.ok) {
+				if (response.status === 404) throw new Error('GitHub repository not found or no longer public.');
+				if (response.status === 403) throw new Error('GitHub API rate limit reached. Please try again later.');
+				throw new Error(`GitHub request failed (${response.status}).`);
+			}
+
+			const repo = await response.json();
+			const card = document.createElement('article');
+			card.className = 'repo';
+			addText(card, 'h2', repo.full_name || repoPath);
+			addText(card, 'p', repo.description || 'No description');
+			const meta = document.createElement('div');
+			meta.className = 'meta';
+			[
+				`⭐ ${repo.stargazers_count} Stars`,
+				`🍴 ${repo.forks_count} Forks`,
+				`Language: ${repo.language || 'Unknown'}`,
+				`Owner: ${repo.owner?.login || 'Unknown'}`
+			].forEach(text => addText(meta, 'span', text, 'tag'));
+			card.append(meta);
+			addLabeledLine(card, 'Topics', repo.topics?.length ? repo.topics.join(', ') : 'None');
+			addLabeledLine(card, 'License', repo.license?.name || 'None');
+			addLabeledLine(card, 'Updated', repo.updated_at || 'Unknown');
+
+			if (repo.homepage?.trim()) {
+				const line = document.createElement('p');
+				const label = document.createElement('span');
+				label.className = 'label';
+				label.textContent = 'Website: ';
+				const link = document.createElement('a');
+				link.href = repo.homepage;
+				link.target = '_blank';
+				link.rel = 'noopener noreferrer';
+				link.textContent = repo.homepage;
+				line.append(label, link);
+				card.append(line);
+			}
+
+			const repoLine = document.createElement('p');
+			const repoLink = document.createElement('a');
+			repoLink.href = repo.html_url;
+			repoLink.target = '_blank';
+			repoLink.rel = 'noopener noreferrer';
+			repoLink.textContent = 'Open Repository';
+			repoLine.append(repoLink);
+			card.append(repoLine);
+			const actions = document.createElement('div');
+			actions.className = 'actions';
+			actions.append(shareButton);
+			card.append(actions);
+			shareButton.hidden = false;
+
+			repoResults.replaceChildren(card);
+		}
+
+		shareButton.addEventListener('click', shareRepository);
+		showRandomColumnLValue();
+	</script>
+</body>
+</html>

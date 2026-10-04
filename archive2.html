@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="theme-color" content="#111827">
+	<title>Internet Archive Item</title>
+	<style>
+		:root { color-scheme: dark; font-family: Arial, sans-serif; }
+		* { box-sizing: border-box; }
+		body { margin: 0; min-height: 100vh; background: #111827; color: #f9fafb; }
+		header { padding: 1rem 1.25rem; background: #1f2937; }
+		h1 { margin: 0; font-size: 1.1rem; }
+		#status { margin: .5rem 0 0; color: #cbd5e1; font-size: .9rem; overflow-wrap: anywhere; }
+		iframe { display: block; width: 100%; height: calc(100vh - 130px); min-height: 24rem; border: 0; background: #000; }
+		.item-details { padding: 1rem 1.25rem; background: #111827; }
+		.item-details h2 { margin: 0 0 .75rem; font-size: 1.35rem; }
+		#itemDescription { margin: 0; color: #d1d5db; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+		footer { display: flex; justify-content: center; gap: .6rem; padding: .75rem 1rem; background: #1f2937; }
+		button { border: 0; border-radius: .35rem; padding: .7rem 1rem; background: #38bdf8; color: #082f49; cursor: pointer; font-weight: 700; }
+		button:disabled { cursor: not-allowed; opacity: .6; }
+		#shareButton { min-width: 2.75rem; padding: .65rem; font-size: 1.2rem; }
+		[hidden] { display: none !important; }
+	</style>
+	<script src="app-launch.js" defer></script>
+</head>
+<body>
+	<header>
+		<h1>Internet Archive Item</h1>
+		<p id="status" role="status">Loading item…</p>
+	</header>
+	<iframe id="archiveViewer" title="Internet Archive item" allowfullscreen hidden></iframe>
+	<section class="item-details" aria-labelledby="itemTitle" hidden>
+		<h2 id="itemTitle"></h2>
+		<p id="itemDescription"></p>
+	</section>
+	<footer>
+		<button id="reviewButton" type="button" disabled>Review this item</button>
+		<button id="shareButton" type="button" aria-label="Share this item" title="Share this item" disabled>↗</button>
+	</footer>
+	<script>
+		const itemId = (new URLSearchParams(window.location.search).get('item') || '').trim();
+		const status = document.querySelector('#status');
+		const viewer = document.querySelector('#archiveViewer');
+		const reviewButton = document.querySelector('#reviewButton');
+		const shareButton = document.querySelector('#shareButton');
+
+		function validItemId(value) {
+			return Boolean(value) && !/[\s/\\?#]/.test(value);
+		}
+
+		function descriptionToText(value) {
+			const container = document.createElement('div');
+			container.innerHTML = String(value || '')
+				.replace(/<\s*br\s*\/?\s*>/gi, '\n')
+				.replace(/<\s*\/\s*p\s*>/gi, '\n\n')
+				.replace(/<\s*p(?:\s[^>]*)?>/gi, '');
+			return (container.textContent || '').replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim();
+		}
+
+		async function loadItemDetails() {
+			const details = document.querySelector('.item-details');
+			const title = document.querySelector('#itemTitle');
+			const description = document.querySelector('#itemDescription');
+			details.hidden = false;
+			title.textContent = 'Loading item details…';
+			description.textContent = '';
+			try {
+				const response = await fetch(`https://archive.org/metadata/${encodeURIComponent(itemId)}`, { cache: 'no-store' });
+				if (!response.ok) throw new Error(`Metadata request failed (${response.status})`);
+				const metadata = await response.json();
+				title.textContent = String(metadata.metadata?.title || itemId);
+				description.textContent = descriptionToText(metadata.metadata?.description) || 'No description is available for this item.';
+			} catch {
+				title.textContent = itemId;
+				description.textContent = 'Could not load the item description.';
+			}
+		}
+
+		if (validItemId(itemId)) {
+			viewer.src = `https://archive.org/embed/${encodeURIComponent(itemId)}`;
+			viewer.hidden = false;
+			status.textContent = `Showing ${itemId}`;
+			reviewButton.disabled = false;
+			shareButton.disabled = false;
+			loadItemDetails();
+		} else {
+			status.textContent = 'A valid Internet Archive item ID is missing from the item parameter.';
+		}
+
+		reviewButton.addEventListener('click', () => {
+			if (!validItemId(itemId)) return;
+			window.open(`https://archive.org/details/${encodeURIComponent(itemId)}/reviews`, '_blank', 'noopener,noreferrer');
+		});
+
+		shareButton.addEventListener('click', async () => {
+			if (!validItemId(itemId)) return;
+			const shareUrl = new URL('https://yan1website.github.io/YAN1.home/archive2.html');
+			shareUrl.searchParams.set('item', itemId);
+			const url = shareUrl.toString();
+			const itemTitle = document.querySelector('#itemTitle').textContent.trim();
+			const title = itemTitle && itemTitle !== 'Loading item details…' ? itemTitle : itemId;
+			const text = `YAN1 APP GEN 1\nYAN1 APP GEN 1\nFound something interesting — have a look! ✨\n▰▰▱ ${title}\nTHANKS 🙏`;
+			try {
+				if (navigator.share) {
+					await navigator.share({ title, text, url });
+				} else if (navigator.clipboard?.writeText) {
+					await navigator.clipboard.writeText(`${text}\n${url}`);
+					status.textContent = 'Share link copied.';
+				} else {
+					window.prompt('Copy this share message and link:', `${text}\n${url}`);
+				}
+			} catch (error) {
+				if (error.name !== 'AbortError') window.prompt('Copy this share message and link:', `${text}\n${url}`);
+			}
+		});
+	</script>
+</body>
+</html>

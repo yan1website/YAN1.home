@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#111111">
+	<title>InvisHosting</title>
+	<style>
+		* { box-sizing: border-box; }
+		body { min-height: 100vh; margin: 0; padding: 28px 16px 44px; overflow-x: hidden; background: #111; color: #fff; font-family: Arial, sans-serif; }
+		main { width: min(100%, 1100px); margin: 0 auto; }
+		#searchForm { display: flex; gap: 8px; margin: 0 0 18px; }
+		#searchInput { flex: 1; min-width: 0; min-height: 46px; padding: 10px 12px; border: 1px solid #555; border-radius: 6px; background: #1b1b1b; color: #fff; font: inherit; }
+		#searchForm button { min-height: 46px; padding: 10px 18px; border: 0; border-radius: 6px; background: #fff; color: #111; font: inherit; cursor: pointer; }
+		#searchForm button:hover { background: #ddd; }
+		#status { min-height: 1.5em; margin: 0 0 16px; padding: 12px; border-radius: 8px; background: #222; color: #ccc; text-align: center; }
+		#status.error { color: #ff7777; }
+		#result[hidden] { display: none; }
+		.sheet-title { margin: 0 0 12px; color: #fff; font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; }
+		.preview-frame { display: block; width: 100%; max-width: 100%; height: 100vh; height: 100svh; min-height: 600px; border: 0; border-radius: 8px; background: #000; }
+		.share-actions { display: flex; justify-content: center; margin-top: 16px; }
+		#shareButton { min-height: 44px; padding: 10px 20px; border: 0; border-radius: 7px; background: #fff; color: #111; font: inherit; cursor: pointer; }
+		#shareButton:hover { background: #ddd; }
+		@media (max-width: 520px) { body { padding: 22px 10px 36px; } .preview-frame { min-height: 520px; } }
+	</style>
+	<script src="app-launch.js" defer></script>
+</head>
+<body>
+	<main>
+		<form id="searchForm" role="search">
+			<input id="searchInput" type="search" placeholder="Search column O" aria-label="Search column O" autocomplete="off">
+			<button type="submit">Search</button>
+		</form>
+		<p id="status" role="status" aria-live="polite">Finding a random link…</p>
+		<section id="result" hidden aria-label="Random sheet entry">
+			<h1 id="sheetData" class="sheet-title"></h1>
+			<iframe id="preview" class="preview-frame" title="Selected link preview" referrerpolicy="no-referrer"></iframe>
+			<div class="share-actions"><button id="shareButton" type="button">Share</button></div>
+		</section>
+	</main>
+	<script>
+		const SPREADSHEET_ID = '1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M';
+		const statusBox = document.querySelector('#status');
+		const result = document.querySelector('#result');
+		const preview = document.querySelector('#preview');
+		const sheetData = document.querySelector('#sheetData');
+		const shareButton = document.querySelector('#shareButton');
+		const searchForm = document.querySelector('#searchForm');
+		const searchInput = document.querySelector('#searchInput');
+		let selectionVersion = 0;
+
+		function queryUrl(query) {
+			const params = new URLSearchParams({ tqx: 'out:json', range: 'N:O', tq: query });
+			return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?${params}`;
+		}
+
+		async function runQuery(query) {
+			const response = await fetch(queryUrl(query), { cache: 'no-store' });
+			if (!response.ok) throw new Error(`Google Sheet request failed (${response.status}).`);
+			const text = await response.text();
+			const start = text.indexOf('{');
+			const end = text.lastIndexOf('}');
+			if (start < 0 || end < start) throw new Error('The Google Sheet returned an invalid response.');
+			const data = JSON.parse(text.slice(start, end + 1));
+			if (data.status !== 'ok') throw new Error(data.errors?.[0]?.detailed_message || 'The Google Sheet query failed.');
+			return data.table;
+		}
+
+		function escapeQueryValue(value) {
+			return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+		}
+
+		function displayRow(selectedRow) {
+			const linkValue = String(selectedRow?.c?.[0]?.v ?? '').trim();
+			const noteValue = String(selectedRow?.c?.[1]?.f ?? selectedRow?.c?.[1]?.v ?? '').trim();
+			const linkUrl = /^https?:\/\//i.test(linkValue)
+				? new URL(linkValue)
+				: new URL(`https://invishosting.com/view.php?id=${encodeURIComponent(linkValue)}`);
+			const isPdf = /\.pdf$/i.test(linkUrl.pathname) || noteValue.replace(/^\./, '').toLowerCase() === 'pdf';
+			const viewerUrl = isPdf
+				? `https://docs.google.com/gview?url=${encodeURIComponent(linkUrl.href)}&embedded=true`
+				: linkUrl.href;
+
+			preview.src = viewerUrl;
+			sheetData.textContent = noteValue;
+			sheetData.hidden = !noteValue;
+			shareButton.onclick = () => shareEntry(linkValue, noteValue);
+			result.hidden = false;
+			statusBox.hidden = true;
+		}
+
+		async function shareEntry(linkValue, noteValue) {
+			const shareUrl = new URL('https://yan1website.github.io/YAN1.home/invishosting2.html');
+			shareUrl.searchParams.set('txt', linkValue);
+			const shareText = [
+				'YAN1 APP GEN 1',
+				'YAN1 APP GEN 1',
+				'Found something interesting — have a look! ✨',
+				`▰▰▱  ${noteValue}`,
+				'THANKS 🙏'
+			].join('\n');
+			const fullMessage = `${shareText}\n\n${shareUrl.href}`;
+
+			try {
+				if (navigator.share) {
+					await navigator.share({ title: 'YAN1 APP GEN 1', text: shareText, url: shareUrl.href });
+				} else if (navigator.clipboard && window.isSecureContext) {
+					await navigator.clipboard.writeText(fullMessage);
+					alert('Share message copied.');
+				} else {
+					window.prompt('Copy this message to share:', fullMessage);
+				}
+			} catch (error) {
+				if (error.name !== 'AbortError') window.prompt('Copy this message to share:', fullMessage);
+			}
+		}
+
+		async function loadEntry() {
+			const version = ++selectionVersion;
+			try {
+				const sharedLink = new URLSearchParams(window.location.search).get('txt')?.trim();
+				let selectedRow;
+				if (sharedLink) {
+					statusBox.textContent = 'Loading the shared link…';
+					const queryValue = escapeQueryValue(sharedLink);
+					const selectedTable = await runQuery(`select N, O where N = '${queryValue}' limit 1`);
+					selectedRow = selectedTable.rows?.[0];
+					if (!selectedRow) throw new Error('The shared link was not found in column N.');
+				} else {
+					const countTable = await runQuery('select count(N) where N is not null');
+					const rowCount = Number(countTable.rows?.[0]?.c?.[0]?.v || 0);
+					if (!Number.isInteger(rowCount) || rowCount < 1) {
+						throw new Error('No links were found in column N.');
+					}
+					const randomIndex = Math.floor(Math.random() * rowCount);
+					statusBox.textContent = 'Loading the selected link…';
+					const selectedTable = await runQuery(`select N, O where N is not null limit 1 offset ${randomIndex}`);
+					selectedRow = selectedTable.rows?.[0];
+				}
+
+				if (version !== selectionVersion) return;
+				displayRow(selectedRow);
+			} catch (error) {
+				if (version !== selectionVersion) return;
+				statusBox.textContent = error.message || 'Unable to load a random link from the sheet.';
+				statusBox.hidden = false;
+				statusBox.classList.add('error');
+			}
+		}
+
+		searchForm.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			const version = ++selectionVersion;
+			const searchTerm = searchInput.value.trim().toLowerCase();
+			if (!searchTerm) {
+				statusBox.textContent = 'Enter text to search column O.';
+				statusBox.hidden = false;
+				statusBox.classList.add('error');
+				return;
+			}
+
+			statusBox.classList.remove('error');
+			statusBox.textContent = 'Searching column O…';
+			statusBox.hidden = false;
+			result.hidden = true;
+			try {
+				const searchValue = escapeQueryValue(searchTerm);
+				const table = await runQuery(`select N, O where N is not null and lower(O) contains '${searchValue}' limit 1`);
+				if (version !== selectionVersion) return;
+				const match = table.rows?.[0];
+				if (!match) throw new Error('No matching text found in column O.');
+				displayRow(match);
+			} catch (error) {
+				if (version !== selectionVersion) return;
+				statusBox.textContent = error.message || 'Unable to search column O.';
+				statusBox.hidden = false;
+				statusBox.classList.add('error');
+			}
+		});
+
+		loadEntry();
+	</script>
+</body>
+</html>

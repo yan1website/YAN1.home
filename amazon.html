@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Products</title>
+	<style>
+		:root {
+			color-scheme: light;
+			--ink: #17221d;
+			--muted: #65736b;
+			--paper: #f5f1e8;
+			--panel: #fffdf8;
+			--accent: #d85d36;
+			--accent-dark: #a93d20;
+			--line: #ded8ca;
+		}
+
+		* { box-sizing: border-box; }
+
+		body {
+			margin: 0;
+			min-height: 100vh;
+			padding: 0;
+			color: var(--ink);
+			background:
+				radial-gradient(circle at 10% 0%, #f9d9b9 0, transparent 34%),
+				linear-gradient(135deg, var(--paper), #e4eee5);
+			font-family: Georgia, "Times New Roman", serif;
+		}
+
+		main {
+			width: 100%;
+			min-height: 100vh;
+			padding: clamp(16px, 4vw, 56px);
+			text-align: center;
+			background: var(--panel);
+		}
+
+		.eyebrow {
+			margin: 0 0 10px;
+			color: var(--accent-dark);
+			font: 700 12px/1.2 Arial, sans-serif;
+			letter-spacing: .16em;
+			text-transform: uppercase;
+		}
+
+		h1 { margin: 0; font-size: clamp(32px, 7vw, 58px); line-height: 1; }
+
+		#status {
+			min-height: 24px;
+			margin: 18px 0 26px;
+			color: var(--muted);
+			font: 15px/1.5 Arial, sans-serif;
+		}
+
+		#search-form {
+			display: flex;
+			gap: 10px;
+			margin: 26px 0;
+		}
+
+		#search-input {
+			min-width: 0;
+			flex: 1;
+			padding: 14px 16px;
+			border: 1px solid var(--line);
+			color: var(--ink);
+			background: #fff;
+			font: 16px/1.2 Arial, sans-serif;
+		}
+
+		#search-input:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+		#products {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+			align-items: start;
+			gap: clamp(8px, 1.5vw, 20px);
+			text-align: left;
+		}
+
+		.product {
+			display: grid;
+			align-content: start;
+			gap: 0;
+			min-width: 0;
+			padding: 0;
+			border: 0;
+			background: #f9f6ee;
+		}
+
+		.product-details {
+			margin: 0;
+			padding: 12px;
+			color: var(--accent-dark);
+			font: 700 18px/1.4 Arial, sans-serif;
+			white-space: pre-wrap;
+		}
+
+		.product-media {
+			width: 100%;
+			line-height: 0;
+		}
+
+		.product-media img,
+		.product-media iframe {
+			display: block;
+			width: 100%;
+			height: auto;
+			border: 0;
+			object-fit: contain;
+		}
+
+		.image-trigger {
+			display: block;
+			width: 100%;
+			height: auto;
+			min-width: 0;
+			padding: 0;
+			background: transparent;
+			color: inherit;
+		}
+
+		.image-trigger:hover:not(:disabled) {
+			background: transparent;
+			transform: none;
+		}
+
+		.image-trigger img { cursor: zoom-in; }
+
+		.product button {
+			width: 100%;
+			margin: 0;
+		}
+
+		.product .image-trigger {
+			min-width: 0;
+			padding: 0;
+			line-height: 0;
+		}
+
+		.product .image-trigger img {
+			height: auto;
+		}
+
+		#load-more {
+			margin-top: 24px;
+		}
+
+		button {
+			min-width: 170px;
+			padding: 14px 24px;
+			border: 0;
+			color: #fff;
+			background: var(--accent);
+			font: 700 15px/1 Arial, sans-serif;
+			cursor: pointer;
+			transition: background .2s ease, transform .2s ease;
+		}
+
+		button:hover:not(:disabled) { background: var(--accent-dark); transform: translateY(-2px); }
+		button:disabled { cursor: wait; opacity: .55; }
+		[hidden] { display: none !important; }
+
+		.error { color: var(--accent-dark) !important; }
+
+		@media (max-width: 560px) {
+			main { padding: 16px 12px; }
+			#search-form { flex-direction: column; }
+			#search-form button { width: 100%; }
+			#products { grid-template-columns: minmax(0, 1fr); }
+		}
+
+		#image-modal {
+			position: fixed;
+			inset: 0;
+			z-index: 10;
+			display: grid;
+			place-items: center;
+			padding: 24px;
+			background: rgba(12, 17, 14, .94);
+		}
+
+		#image-modal img {
+			max-width: 96vw;
+			max-height: 90vh;
+			object-fit: contain;
+			box-shadow: 0 18px 45px rgba(0, 0, 0, .38);
+		}
+
+		#close-modal {
+			position: fixed;
+			top: 18px;
+			right: 18px;
+			min-width: 0;
+			padding: 10px 16px;
+			font-size: 24px;
+			line-height: 1;
+		}
+	</style>
+	<script src="app-launch.js" defer></script>
+</head>
+<body>
+	<main>
+		<p class="eyebrow">A little something to browse</p>
+		<h1>Products</h1>
+		<form id="search-form" role="search">
+			<input id="search-input" type="search" placeholder="Search products" autocomplete="off">
+			<button type="submit">Search</button>
+		</form>
+		<p id="status" aria-live="polite">Finding something for you...</p>
+
+		<section id="products" aria-label="Products"></section>
+		<button id="load-more" type="button">Load more</button>
+	</main>
+
+	<div id="image-modal" role="dialog" aria-modal="true" aria-label="Full-size product image" hidden>
+		<button id="close-modal" type="button" aria-label="Close full-size image">&times;</button>
+		<img id="modal-image" alt="Full-size product">
+	</div>
+
+	<script>
+		const SPREADSHEET_ID = '1lNHUEVGVLIy43AhCSSi8AHkINszfA7iNubEsHUqdRKQ';
+		const SHEET_NAME = 'Sheet1';
+
+		const products = document.querySelector('#products');
+		const status = document.querySelector('#status');
+		const loadMoreButton = document.querySelector('#load-more');
+		const searchForm = document.querySelector('#search-form');
+		const searchInput = document.querySelector('#search-input');
+		const imageModal = document.querySelector('#image-modal');
+		const modalImage = document.querySelector('#modal-image');
+		const closeModalButton = document.querySelector('#close-modal');
+		const PAGE_SIZE = 12;
+		let offset = 0;
+		let totalRows = 0;
+		let searchTerm = '';
+
+		function sheetQueryUrl(query) {
+			const params = new URLSearchParams({
+				sheet: SHEET_NAME,
+				tqx: 'out:json',
+				tq: query
+			});
+			return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?${params}`;
+		}
+
+		function escapeQueryText(value) {
+			return value.replace(/'/g, "''");
+		}
+
+		async function querySheet(query) {
+			const response = await fetch(sheetQueryUrl(query), { cache: 'no-store' });
+			if (!response.ok) throw new Error(`Google Sheets request failed (${response.status})`);
+
+			const text = await response.text();
+			const start = text.indexOf('{');
+			const end = text.lastIndexOf('}');
+			if (start < 0 || end < start) throw new Error('Invalid Google Sheets response');
+
+			const result = JSON.parse(text.slice(start, end + 1));
+			if (result.status !== 'ok') {
+				throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed');
+			}
+			return result.table;
+		}
+
+		function addProduct(imageUrl, orderUrl, productDetails) {
+			const card = document.createElement('article');
+			card.className = 'product';
+
+			const media = document.createElement('div');
+			media.className = 'product-media';
+
+			const image = document.createElement('img');
+			image.src = imageUrl;
+			image.alt = 'Product';
+			image.loading = 'lazy';
+			image.addEventListener('error', () => {
+				// Some hosts provide a page URL instead of a direct image URL.
+				image.hidden = true;
+				const frame = document.createElement('iframe');
+				frame.src = imageUrl;
+				frame.title = 'Product image page';
+				frame.loading = 'lazy';
+				media.appendChild(frame);
+			}, { once: true });
+			const imageButton = document.createElement('button');
+			imageButton.type = 'button';
+			imageButton.className = 'image-trigger';
+			imageButton.setAttribute('aria-label', 'Open full-size product image');
+			imageButton.appendChild(image);
+			imageButton.addEventListener('click', () => {
+				modalImage.src = imageUrl;
+				imageModal.hidden = false;
+				document.body.style.overflow = 'hidden';
+				closeModalButton.focus();
+			});
+			media.appendChild(imageButton);
+
+			const orderButton = document.createElement('button');
+			orderButton.type = 'button';
+			orderButton.textContent = 'Order now';
+			orderButton.addEventListener('click', () => {
+				window.open(orderUrl, '_blank', 'noopener,noreferrer');
+			});
+			const details = document.createElement('p');
+			details.className = 'product-details';
+			details.textContent = productDetails;
+			details.hidden = !productDetails;
+
+			const shareButton = document.createElement('button');
+			shareButton.type = 'button';
+			shareButton.textContent = 'Share';
+			shareButton.addEventListener('click', async () => {
+				const shareUrl = new URL('https://yan1website.github.io/YAN1.home/amazon1.html');
+				shareUrl.searchParams.set('img', imageUrl);
+				shareUrl.searchParams.set('ama', orderUrl);
+				if (productDetails) shareUrl.searchParams.set('details', productDetails);
+
+				const shareText = [
+					'YAN1 APP GEN 1',
+					'Found something interesting — have a look! ✨',
+					productDetails ? `🛒 ${productDetails}` : '',
+					'THANKS 🙏'
+				].filter(Boolean).join('\n');
+
+				try {
+					if (navigator.share) {
+						await navigator.share({
+							title: 'YAN1 APP GEN 1',
+							text: shareText,
+							url: shareUrl.toString()
+						});
+					} else if (navigator.clipboard?.writeText) {
+						await navigator.clipboard.writeText(`${shareText}\n${shareUrl.toString()}`);
+						shareButton.textContent = 'Message copied';
+						window.setTimeout(() => { shareButton.textContent = 'Share'; }, 2000);
+					} else {
+						window.prompt('Copy this message to share:', `${shareText}\n${shareUrl.toString()}`);
+					}
+				} catch (error) {
+					if (error.name !== 'AbortError') {
+						window.prompt('Copy this message to share:', `${shareText}\n${shareUrl.toString()}`);
+					}
+				}
+			});
+
+			card.append(media, details, orderButton, shareButton);
+			products.appendChild(card);
+		}
+
+		async function loadProducts() {
+			loadMoreButton.disabled = true;
+			status.classList.remove('error');
+			status.textContent = offset ? 'Loading more products...' : 'Loading products...';
+
+			try {
+				if (!totalRows) {
+					const searchClause = searchTerm ? ` and lower(C) contains '${escapeQueryText(searchTerm.toLowerCase())}'` : '';
+					const countTable = await querySheet(`select count(A) where A is not null and B is not null${searchClause}`);
+					totalRows = Number(countTable.rows?.[0]?.c?.[0]?.v || 0);
+					if (!Number.isInteger(totalRows) || totalRows < 1) {
+						throw new Error(searchTerm ? 'No matching products found.' : 'No image and order-link rows were found.');
+					}
+				}
+
+				const searchClause = searchTerm ? ` and lower(C) contains '${escapeQueryText(searchTerm.toLowerCase())}'` : '';
+				const selectedTable = await querySheet(
+					`select A, B, C where A is not null and B is not null${searchClause} limit ${PAGE_SIZE} offset ${offset}`
+				);
+
+				(selectedTable.rows || []).forEach((row) => {
+					const cells = row.c || [];
+					const imageUrl = String(cells[0]?.v || '').trim();
+					const orderUrl = String(cells[1]?.v || '').trim();
+					const productDetails = String(cells[2]?.v ?? '').trim();
+					if (/^https?:\/\//i.test(imageUrl) && /^https?:\/\//i.test(orderUrl)) {
+						addProduct(imageUrl, orderUrl, productDetails);
+					}
+				});
+
+				offset += PAGE_SIZE;
+				const loadedAll = offset >= totalRows || (selectedTable.rows || []).length < PAGE_SIZE;
+				loadMoreButton.hidden = loadedAll;
+				status.textContent = loadedAll ? `Showing ${products.children.length} products.` : `Showing ${products.children.length} products.`;
+			} catch (error) {
+				status.classList.add('error');
+				status.textContent = error.message || 'Unable to load a product right now.';
+				loadMoreButton.hidden = true;
+			} finally {
+				loadMoreButton.disabled = false;
+			}
+		}
+
+		loadMoreButton.addEventListener('click', loadProducts);
+		searchForm.addEventListener('submit', (event) => {
+			event.preventDefault();
+			searchTerm = searchInput.value.trim();
+			offset = 0;
+			totalRows = 0;
+			products.replaceChildren();
+			loadMoreButton.hidden = false;
+			loadProducts();
+		});
+		function closeModal() {
+			imageModal.hidden = true;
+			modalImage.removeAttribute('src');
+			document.body.style.overflow = '';
+		}
+
+		closeModalButton.addEventListener('click', closeModal);
+		imageModal.addEventListener('click', (event) => {
+			if (event.target === imageModal) closeModal();
+		});
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape' && !imageModal.hidden) closeModal();
+		});
+
+		loadProducts();
+	</script>
+</body>
+</html>

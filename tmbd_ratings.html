@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>YAN1 Movies</title>
+
+<style>
+
+*{
+box-sizing:border-box;
+}
+
+body{
+margin:0;
+font-family:Arial,Helvetica,sans-serif;
+background:linear-gradient(180deg,#0d0d0f,#181818 25%,#111 100%);
+color:white;
+}
+
+
+header{
+background:linear-gradient(90deg,#b70d13,#e50914);
+padding:22px 20px;
+text-align:center;
+font-size:30px;
+font-weight:bold;
+letter-spacing:0.5px;
+box-shadow:0 6px 20px rgba(0,0,0,0.25);
+}
+
+
+.search-box{
+text-align:center;
+padding:30px 20px 20px;
+}
+
+
+input{
+width:60%;
+max-width:500px;
+padding:15px 16px;
+font-size:18px;
+border-radius:12px;
+border:1px solid rgba(255,255,255,0.1);
+background:#1b1b1b;
+color:white;
+outline:none;
+}
+
+
+button{
+padding:15px 25px;
+margin-left:10px;
+background:#e50914;
+color:white;
+border:none;
+border-radius:12px;
+cursor:pointer;
+font-weight:bold;
+transition:0.2s ease;
+}
+
+button:hover{
+    transform:translateY(-1px);
+    background:#ff1d2d;
+}
+
+
+
+#results{
+
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:22px;
+padding:20px;
+max-width:1200px;
+margin:0 auto;
+}
+
+
+
+.card{
+
+background:linear-gradient(180deg,#1d1d1d,#151515);
+border-radius:14px;
+overflow:hidden;
+cursor:pointer;
+display:flex;
+flex-direction:column;
+border:1px solid rgba(255,255,255,0.05);
+box-shadow:0 10px 22px rgba(0,0,0,0.25);
+transition:transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover{
+    transform:translateY(-4px);
+    box-shadow:0 16px 28px rgba(0,0,0,0.35);
+}
+
+
+.card img{
+
+width:100%;
+height:360px;
+object-fit:contain;
+object-position:center;
+display:block;
+background:#0b0b0b;
+padding:8px;
+
+}
+
+
+
+.info{
+
+padding:16px 15px 18px;
+
+}
+
+.info h2 {
+    margin:0 0 10px;
+    font-size:1.15rem;
+    line-height:1.3;
+}
+
+
+.rating{
+
+color:#ffd700;
+font-weight:bold;
+
+}
+
+
+.type{
+
+color:#00e5ff;
+text-transform:uppercase;
+letter-spacing:0.05em;
+font-size:0.8rem;
+margin-bottom:8px;
+
+}
+
+
+
+#details{
+
+display:none;
+max-width:1100px;
+margin:0 auto;
+padding:20px;
+
+}
+
+
+
+.backdrop{
+
+width:100%;
+height:420px;
+object-fit:cover;
+object-position:center;
+display:block;
+border-radius:16px;
+box-shadow:0 14px 30px rgba(0,0,0,0.35);
+
+}
+
+
+
+.cast{
+
+display:flex;
+gap:15px;
+overflow-x:auto;
+
+}
+
+
+
+.actor{
+
+min-width:140px;
+background:#222;
+padding:10px;
+border-radius:10px;
+
+}
+
+
+
+.actor img{
+
+width:100%;
+height:180px;
+object-fit:cover;
+
+}
+
+
+
+.review{
+
+background:#222;
+padding:20px;
+margin:15px 0;
+border-radius:12px;
+
+}
+
+
+
+.review-header{
+
+display:flex;
+gap:15px;
+align-items:center;
+
+}
+
+
+
+.avatar{
+
+width:55px;
+height:55px;
+border-radius:50%;
+object-fit:cover;
+background:#555;
+
+}
+
+
+
+.review-author{
+
+font-size:18px;
+font-weight:bold;
+
+}
+
+
+
+.review-rating{
+
+color:#ffd700;
+
+}
+
+
+
+.review-date{
+
+color:#aaa;
+font-size:14px;
+
+}
+
+
+
+.review-text{
+
+margin-top:15px;
+line-height:1.6;
+color:#ddd;
+
+}
+
+
+iframe{
+
+max-width:100%;
+
+}
+
+
+</style>
+
+  <script src="app-launch.js" defer></script>
+</head>
+
+
+<body>
+
+
+<header>
+YAN1 Movies 🎬
+</header>
+
+
+
+<div class="search-box">
+
+<input id="search" placeholder="Search movie or TV series">
+
+<button onclick="searchMovie()">
+Search
+</button>
+
+</div>
+
+
+
+<div id="results"></div>
+
+
+<div id="details"></div>
+
+
+
+<script>
+
+
+const API_KEY="c7623823ab706b512da2ef32c063c7d2";
+
+
+const IMAGE="https://image.tmdb.org/t/p/w500";
+
+const ORIGINAL="https://image.tmdb.org/t/p/original";
+
+const SHEET_ID="1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M";
+
+
+
+async function searchMovie(){
+
+
+let query=document
+.getElementById("search")
+.value.trim();
+
+
+
+if(!query){
+
+alert("Enter movie name");
+return;
+
+}
+let url=
+`https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${query}`;
+
+
+
+let response=await fetch(url);
+
+let data=await response.json();
+
+
+
+displayResults(data.results);
+
+
+}
+
+async function loadRandomSearchFromSheet(){
+  const searchInput = document.getElementById("search");
+  const searchButton = document.querySelector(".search-box button");
+  searchInput.disabled = true;
+  searchButton.disabled = true;
+  searchInput.placeholder = "Choosing a random search…";
+
+  async function querySheet(query){
+    const params = new URLSearchParams({ tqx: "out:json", tq: query });
+    const response = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`, { cache: "no-store" });
+    if(!response.ok) throw new Error(`Sheet request failed (${response.status}).`);
+    const text = await response.text();
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if(start < 0 || end < start) throw new Error("Invalid Google Sheets response.");
+    const result = JSON.parse(text.slice(start, end + 1));
+    if(result.status !== "ok") throw new Error(result.errors?.[0]?.detailed_message || "The sheet query failed.");
+    return result.table;
+  }
+
+  try{
+    // Fetch an aggregate count, then request only the selected nonempty cell.
+    const countTable = await querySheet("select count(M) where M is not null");
+    const rowCount = Number(countTable.rows?.[0]?.c?.[0]?.v || 0);
+    if(!Number.isInteger(rowCount) || rowCount < 1) throw new Error("No search values found in column M.");
+
+    const randomOffset = Math.floor(Math.random() * rowCount);
+    const valueTable = await querySheet(`select M where M is not null limit 1 offset ${randomOffset}`);
+    const cell = valueTable.rows?.[0]?.c?.[0];
+    const query = String(cell?.f ?? cell?.v ?? "").trim();
+    if(!query) throw new Error("The selected column M cell is empty.");
+
+    searchInput.value = query;
+    searchInput.placeholder = "Search movie or TV series";
+    searchInput.disabled = false;
+    searchButton.disabled = false;
+    await searchMovie();
+  }catch(error){
+    searchInput.placeholder = "Search movie or TV series";
+    searchInput.disabled = false;
+    searchButton.disabled = false;
+    console.error("Could not load a random search from column M:", error);
+    searchInput.title = error.message || "Could not load a random search from the sheet.";
+  }
+}
+
+
+
+
+
+function displayResults(movies){
+
+
+let box=document.getElementById("results");
+
+box.style.display="grid";
+
+box.innerHTML="";
+
+
+
+movies.forEach(movie=>{
+
+
+if(!movie.poster_path)
+return;
+
+
+
+let title=
+movie.title || movie.name;
+
+
+
+box.innerHTML+=`
+
+<div class="card"
+onclick="getDetails('${movie.media_type}',${movie.id})">
+
+
+<img src="${IMAGE}${movie.poster_path}">
+
+
+<div class="info">
+
+<h2>${title}</h2>
+
+
+<p class="type">
+${movie.media_type}
+</p>
+
+
+<p class="rating">
+⭐ ${movie.vote_average}/10
+</p>
+
+
+</div>
+
+
+</div>
+
+`;
+
+});
+
+
+}
+
+
+
+
+
+
+
+async function getDetails(type,id){
+
+
+let url;
+
+
+
+if(type==="tv"){
+
+url=
+`https://api.themoviedb.org/3/tv/${id}?api_key=${API_KEY}&append_to_response=credits,videos,reviews`;
+
+}
+
+else{
+
+url=
+`https://api.themoviedb.org/3/movie/${id}?api_key=${API_KEY}&append_to_response=credits,videos,reviews`;
+
+}
+
+
+
+let response=await fetch(url);
+
+let movie=await response.json();
+
+
+
+showDetails(movie);
+
+
+}
+
+
+
+
+
+
+
+function showDetails(movie){
+
+
+document.getElementById("results").style.display="none";
+
+
+let details=document.getElementById("details");
+
+details.style.display="block";
+
+
+
+let title=
+movie.title || movie.name;
+
+
+
+/* Trailer */
+
+
+let trailer="No trailer available";
+
+
+let video =
+movie.videos?.results?.find(
+v=>v.type==="Trailer"
+);
+
+
+
+if(video){
+
+trailer=`
+
+<iframe
+width="560"
+height="315"
+src="https://www.youtube.com/embed/${video.key}"
+allowfullscreen>
+</iframe>
+
+`;
+
+}
+
+
+
+
+/* Cast */
+
+
+let cast="";
+
+
+(movie.credits?.cast || [])
+.slice(0,10)
+.forEach(actor=>{
+
+
+let img =
+actor.profile_path
+?
+IMAGE+actor.profile_path
+:
+"https://via.placeholder.com/150";
+
+
+
+cast+=`
+
+<div class="actor">
+
+<img src="${img}">
+
+<p>
+<b>${actor.name}</b>
+</p>
+
+<p>
+${actor.character}
+</p>
+
+</div>
+
+`;
+
+});
+
+
+
+
+
+
+/* Reviews */
+
+
+let reviews="";
+
+
+
+(movie.reviews?.results || [])
+.slice(0,5)
+.forEach(review=>{
+
+
+let avatar =
+review.author_details?.avatar_path
+?
+IMAGE+review.author_details.avatar_path
+:
+"https://via.placeholder.com/50";
+
+
+
+let rating =
+review.author_details?.rating
+?
+"⭐ "+review.author_details.rating+"/10"
+:
+"";
+
+
+
+let date =
+new Date(review.created_at)
+.toLocaleDateString();
+
+
+
+reviews+=`
+
+<div class="review">
+
+
+<div class="review-header">
+
+
+<img class="avatar"
+src="${avatar}">
+
+
+<div>
+
+
+<div class="review-author">
+${review.author}
+</div>
+
+
+<div class="review-rating">
+${rating}
+</div>
+
+
+<div class="review-date">
+${date}
+</div>
+
+
+</div>
+
+
+</div>
+
+
+
+<div class="review-text">
+
+${review.content}
+
+</div>
+
+
+
+</div>
+
+`;
+
+});
+
+
+
+if(reviews===""){
+
+reviews="<p>No reviews available.</p>";
+
+}
+
+
+
+
+
+details.innerHTML=`
+
+<h1>${title}</h1>
+
+
+<img class="backdrop"
+src="${ORIGINAL}${movie.backdrop_path}">
+
+
+
+<h2>
+⭐ Rating: ${movie.vote_average}/10
+</h2>
+
+
+
+<p>
+${movie.overview || "No description"}
+</p>
+
+
+
+<h2>
+Cast
+</h2>
+
+
+<div class="cast">
+
+${cast}
+
+</div>
+
+
+
+
+<h2>
+Trailer
+</h2>
+
+
+${trailer}
+
+
+
+<h2>
+Reviews
+</h2>
+
+
+${reviews}
+
+
+
+<button onclick="backSearch()">
+Back
+</button>
+
+
+`;
+
+
+
+}
+
+
+
+
+
+
+
+function backSearch(){
+
+
+document.getElementById("details").style.display="none";
+
+
+document.getElementById("results").style.display="grid";
+
+
+}
+
+
+window.addEventListener("DOMContentLoaded", loadRandomSearchFromSheet);
+
+</script>
+
+
+</body>
+</html>

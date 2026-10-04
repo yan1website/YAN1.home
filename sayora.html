@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10131d">
+  <title>Sayora — Image & Caption</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    body { min-height: 100vh; margin: 0; padding: 36px 18px 56px; color: #f7f5ff; background: radial-gradient(ellipse at 50% -15%, #46306e 0, #191827 42%, #10131d 78%); }
+    main { width: min(100%, 720px); margin: 0 auto; }
+    .brand { color: #c6a8ff; font-size: 12px; font-weight: 750; letter-spacing: .2em; text-transform: uppercase; }
+    h1 { margin: 10px 0 8px; font-size: clamp(30px, 6vw, 44px); letter-spacing: -.045em; }
+    .intro { margin: 0 0 28px; color: #aaa7ba; line-height: 1.6; }
+    .card { padding: clamp(18px, 4vw, 30px); border: 1px solid #343044; border-radius: 20px; background: rgb(25 24 39 / 92%); box-shadow: 0 24px 70px #08081070; }
+    label { display: block; margin: 0 0 9px; color: #e7e2f1; font-size: 14px; font-weight: 650; }
+    .drop { display: grid; min-height: 190px; place-items: center; padding: 20px; overflow: hidden; border: 1px dashed #71608e; border-radius: 14px; background: #171622; text-align: center; cursor: pointer; }
+    .drop:hover, .drop:focus-within { border-color: #c6a8ff; }
+    .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    .drop-copy { color: #aaa7ba; line-height: 1.6; }
+    .drop-copy strong { display: block; margin-bottom: 4px; color: #f7f5ff; font-size: 16px; }
+    #preview { display: none; max-height: 330px; max-width: 100%; object-fit: contain; border-radius: 9px; }
+    .file-name { margin: 8px 0 0; color: #aaa7ba; font-size: 12px; overflow-wrap: anywhere; }
+    .field { margin-top: 23px; }
+    textarea { display: block; width: 100%; min-height: 115px; resize: vertical; padding: 13px 14px; color: #f7f5ff; background: #12121c; border: 1px solid #39364b; border-radius: 11px; font: inherit; line-height: 1.55; }
+    textarea:focus { border-color: #b28af5; outline: 2px solid #b28af533; }
+    .hint-row { display: flex; justify-content: space-between; gap: 12px; margin-top: 7px; color: #9290a3; font-size: 12px; }
+    button, .save { display: inline-flex; justify-content: center; align-items: center; min-height: 46px; padding: 0 19px; border: 0; border-radius: 10px; color: #20172d; background: #c6a8ff; font: inherit; font-weight: 750; text-decoration: none; cursor: pointer; }
+    button:hover, .save:hover { background: #d5c0ff; }
+    button:disabled { opacity: .55; cursor: wait; }
+    .upload { width: 100%; margin-top: 22px; }
+    .status { display: none; margin: 16px 0 0; padding: 12px 14px; border-radius: 9px; background: #211e2c; color: #d7d1e3; font-size: 14px; line-height: 1.5; }
+    .status.error { display: block; color: #ffc4c4; background: #331e2a; }
+    .result { display: none; margin-top: 22px; padding-top: 22px; border-top: 1px solid #39364b; }
+    .result h2 { margin: 0 0 14px; font-size: 18px; }
+    .result-preview { display: block; max-width: 100%; max-height: 360px; margin: 0 auto 18px; border-radius: 10px; }
+    .url-row { margin: 12px 0; }
+    .url-row label { margin-bottom: 6px; font-size: 12px; }
+    .url-row input { width: 100%; padding: 10px 11px; color: #dcd8e8; background: #12121c; border: 1px solid #39364b; border-radius: 8px; font: 13px ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .save { width: 100%; margin-top: 13px; }
+    .footnote { margin: 18px 0 0; color: #89869a; font-size: 12px; line-height: 1.55; }
+    @media (max-width: 480px) { body { padding: 24px 12px 40px; } .card { border-radius: 15px; } }
+  </style>
+  <script src="app-launch.js" defer></script>
+</head>
+<body>
+  <main>
+    <div class="brand">Sayora</div>
+    <h1>Image + your words</h1>
+    <p class="intro">Choose an image, add a caption, and upload them together as one image.</p>
+
+    <section class="card" aria-label="Create and upload an image">
+      <form id="uploadForm">
+        <label for="imageInput">Your image</label>
+        <label class="drop" for="imageInput" id="dropArea">
+          <input id="imageInput" type="file" accept="image/*" required>
+          <span class="drop-copy" id="dropCopy"><strong>Choose an image</strong>Click to browse or drop an image here</span>
+          <img id="preview" alt="Selected image preview">
+        </label>
+        <p class="file-name" id="fileName"></p>
+
+        <div class="field">
+          <label for="caption">Caption</label>
+          <textarea id="caption" maxlength="250" placeholder="Write up to 250 characters…"></textarea>
+          <div class="hint-row"><span>Your caption will appear below the image.</span><span id="charCount">0 / 250</span></div>
+        </div>
+        <button class="upload" id="uploadButton" type="submit">Create &amp; upload image</button>
+      </form>
+
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+      <section class="result" id="result" aria-live="polite">
+        <h2>Your image is ready</h2>
+        <img class="result-preview" id="resultPreview" alt="Uploaded combined image">
+        <div class="url-row">
+          <label for="imageUrl">Image URL</label>
+          <input id="imageUrl" readonly>
+        </div>
+        <div class="url-row">
+          <label for="deleteUrl">Deletion URL</label>
+          <input id="deleteUrl" readonly>
+        </div>
+        <a class="save" id="saveLink" target="_blank" rel="noopener noreferrer">Save image link in the form</a>
+      </section>
+    </section>
+    <p class="footnote">The selected image and caption are combined in your browser before the finished image is uploaded.</p>
+  </main>
+
+  <script>
+    const IMGBB_API_KEY = 'e009cb2784f6a3d11cb76fffc484f357';
+    const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSeOahsrk-T2Ck2_g9Oq4C8K3rmoQP_APitD7_cyp5kDDUa2NQ/viewform?usp=pp_url&entry.962512075=';
+    const imageInput = document.querySelector('#imageInput');
+    const captionInput = document.querySelector('#caption');
+    const uploadForm = document.querySelector('#uploadForm');
+    const uploadButton = document.querySelector('#uploadButton');
+    const status = document.querySelector('#status');
+    const result = document.querySelector('#result');
+    const preview = document.querySelector('#preview');
+    const dropCopy = document.querySelector('#dropCopy');
+
+    captionInput.addEventListener('input', () => {
+      document.querySelector('#charCount').textContent = `${captionInput.value.length} / 250`;
+    });
+
+    imageInput.addEventListener('change', () => {
+      const file = imageInput.files && imageInput.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        imageInput.value = '';
+        showStatus('Please choose a valid image file.', true);
+        return;
+      }
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = 'block';
+      dropCopy.style.display = 'none';
+      document.querySelector('#fileName').textContent = `${file.name} · ${formatBytes(file.size)}`;
+      hideStatus();
+      result.style.display = 'none';
+    });
+
+    document.querySelector('#dropArea').addEventListener('dragover', event => {
+      event.preventDefault();
+      event.currentTarget.style.borderColor = '#c6a8ff';
+    });
+    document.querySelector('#dropArea').addEventListener('dragleave', event => {
+      event.currentTarget.style.borderColor = '';
+    });
+    document.querySelector('#dropArea').addEventListener('drop', event => {
+      event.preventDefault();
+      event.currentTarget.style.borderColor = '';
+      const file = event.dataTransfer.files && event.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        imageInput.files = transfer.files;
+        imageInput.dispatchEvent(new Event('change'));
+      }
+    });
+
+    uploadForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const file = imageInput.files && imageInput.files[0];
+      if (!file) {
+        showStatus('Choose an image before uploading.', true);
+        return;
+      }
+      uploadButton.disabled = true;
+      uploadButton.textContent = 'Preparing image…';
+      result.style.display = 'none';
+      try {
+        const combined = await composeImage(file, captionInput.value.trim());
+        const formData = new FormData();
+        formData.append('key', IMGBB_API_KEY);
+        formData.append('image', combined, 'sayora.png');
+        uploadButton.textContent = 'Uploading to ImgBB…';
+        showStatus('Uploading your combined image to ImgBB…');
+
+        const response = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
+        const payload = await response.json();
+        if (!response.ok || !payload.success || !payload.data) {
+          throw new Error(payload.error?.message || `ImgBB upload failed (${response.status}).`);
+        }
+        const imageUrl = payload.data.url || payload.data.display_url || payload.data.url_viewer;
+        const deleteUrl = payload.data.delete_url || '';
+        document.querySelector('#imageUrl').value = imageUrl || '';
+        document.querySelector('#deleteUrl').value = deleteUrl || 'No deletion URL was returned.';
+        document.querySelector('#resultPreview').src = imageUrl || '';
+        document.querySelector('#saveLink').href = FORM_URL + encodeURIComponent(imageUrl || '');
+        result.style.display = 'block';
+        showStatus('Upload complete. Keep the deletion URL private; it can remove this image.');
+      } catch (error) {
+        showStatus(error.message || 'Something went wrong while uploading. Please try again.', true);
+      } finally {
+        uploadButton.disabled = false;
+        uploadButton.textContent = 'Create & upload image';
+      }
+    });
+
+    function composeImage(file, caption) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        image.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          const width = Math.min(image.naturalWidth, 1600);
+          const scale = width / image.naturalWidth;
+          const height = Math.round(image.naturalHeight * scale);
+          const padding = Math.max(28, Math.round(width * 0.045));
+          const fontSize = Math.max(22, Math.min(48, Math.round(width * 0.038)));
+          const lineHeight = Math.round(fontSize * 1.42);
+          const maxTextWidth = width - padding * 2;
+          const lines = wrapText(caption || ' ', maxTextWidth, fontSize);
+          const captionHeight = padding * 2 + lines.length * lineHeight;
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height + captionHeight;
+          const context = canvas.getContext('2d');
+          if (!context) return reject(new Error('Could not create the combined image in this browser.'));
+          context.drawImage(image, 0, 0, width, height);
+          context.fillStyle = '#171521';
+          context.fillRect(0, height, width, captionHeight);
+          context.font = `500 ${fontSize}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+          context.fillStyle = '#ffffff';
+          context.textBaseline = 'top';
+          lines.forEach((line, index) => context.fillText(line, padding, height + padding + index * lineHeight));
+          canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not encode the combined image.')), 'image/png');
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          reject(new Error('The selected image could not be opened.'));
+        };
+        image.src = objectUrl;
+      });
+    }
+
+    function wrapText(text, maxWidth, fontSize) {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      context.font = `500 ${fontSize}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+      const words = text.split(/\s+/).filter(Boolean);
+      const lines = [];
+      let line = '';
+      for (const word of words) {
+        const candidate = line ? `${line} ${word}` : word;
+        if (line && context.measureText(candidate).width > maxWidth) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = candidate;
+        }
+      }
+      if (line) lines.push(line);
+      return lines.length ? lines : [' '];
+    }
+
+    function formatBytes(bytes) {
+      return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    function showStatus(message, isError = false) {
+      status.textContent = message;
+      status.style.display = 'block';
+      status.classList.toggle('error', isError);
+    }
+    function hideStatus() {
+      status.style.display = 'none';
+      status.classList.remove('error');
+    }
+  </script>
+</body>
+</html>

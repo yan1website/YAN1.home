@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Random Internet Archive Item</title>
+	<style>
+		:root {
+			color-scheme: dark;
+			font-family: Arial, sans-serif;
+		}
+
+		body {
+			margin: 0;
+			min-height: 100vh;
+			background: #111827;
+			color: #f9fafb;
+		}
+
+		header {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 1rem;
+			padding: 1rem 1.25rem;
+			background: #1f2937;
+		}
+
+		#status {
+			margin: 0;
+			color: #cbd5e1;
+			font-size: 0.9rem;
+		}
+
+		button {
+			border: 0;
+			border-radius: 0.35rem;
+			padding: 0.65rem 0.9rem;
+			background: #38bdf8;
+			color: #082f49;
+			cursor: pointer;
+			font-weight: 700;
+		}
+
+		button:disabled {
+			cursor: wait;
+			opacity: 0.65;
+		}
+
+		iframe {
+			display: block;
+			width: 100%;
+			height: calc(100vh - 120px);
+			min-height: 32rem;
+			border: 0;
+			background: #000;
+		}
+
+		.item-details {
+			padding: 1rem 1.25rem;
+			background: #111827;
+		}
+
+		.item-details h2 { margin: 0 0 .75rem; font-size: 1.35rem; }
+		#itemDescription { margin: 0; color: #d1d5db; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+		footer {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 0.6rem;
+			padding: 0.75rem 1rem;
+			background: #1f2937;
+		}
+
+		#shareButton {
+			min-width: 2.75rem;
+			padding: 0.65rem;
+			font-size: 1.2rem;
+		}
+	</style>
+	<script src="app-launch.js" defer></script>
+</head>
+<body>
+	<header>
+		<p id="status" role="status">Choosing an item...</p>
+	</header>
+
+	<iframe id="archiveViewer" title="Internet Archive item" allowfullscreen></iframe>
+	<section class="item-details" aria-labelledby="itemTitle" hidden>
+		<h2 id="itemTitle"></h2>
+		<p id="itemDescription"></p>
+	</section>
+	<footer>
+		<button id="reviewButton" type="button" disabled>Review this item</button>
+		<button id="randomButton" type="button">Show another</button>
+		<button id="shareButton" type="button" aria-label="Share this item" title="Share this item" disabled>↗</button>
+	</footer>
+
+	<script>
+		const SPREADSHEET_ID = '1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M';
+		const SHEET_NAME = 'Sheet1';
+
+		function sheetQueryUrl(query) {
+			const params = new URLSearchParams({
+				sheet: SHEET_NAME,
+				tqx: 'out:json',
+				tq: query
+			});
+			return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?${params}`;
+		}
+
+		async function querySheet(query) {
+			const response = await fetch(sheetQueryUrl(query), { cache: 'no-store' });
+			if (!response.ok) {
+				throw new Error(`Google Sheets request failed (${response.status})`);
+			}
+
+			const text = await response.text();
+			const start = text.indexOf('{');
+			const end = text.lastIndexOf('}');
+			if (start < 0 || end < start) {
+				throw new Error('Invalid Google Sheets response');
+			}
+
+			const result = JSON.parse(text.slice(start, end + 1));
+			if (result.status !== 'ok') {
+				throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed');
+			}
+			return result.table;
+		}
+
+		async function getRandomItemId() {
+			const countTable = await querySheet('select count(J) where J is not null');
+			const rowCount = Number(countTable.rows?.[0]?.c?.[0]?.v || 0);
+			if (!Number.isInteger(rowCount) || rowCount < 1) {
+				throw new Error('No item IDs were found in column J.');
+			}
+
+			const randomOffset = Math.floor(Math.random() * rowCount);
+			const selectedTable = await querySheet(
+				`select J where J is not null limit 1 offset ${randomOffset}`
+			);
+			const itemId = String(selectedTable.rows?.[0]?.c?.[0]?.v || '').trim();
+			if (!itemId || /[\s/]/.test(itemId)) {
+				throw new Error('The selected cell does not contain a valid Internet Archive item ID.');
+			}
+			return itemId;
+		}
+
+		function descriptionToText(value) {
+			const container = document.createElement('div');
+			container.innerHTML = String(value || '')
+				.replace(/<\s*br\s*\/?\s*>/gi, '\n')
+				.replace(/<\s*\/\s*p\s*>/gi, '\n\n')
+				.replace(/<\s*p(?:\s[^>]*)?>/gi, '');
+			return (container.textContent || '').replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim();
+		}
+
+		async function loadItemDetails(itemId) {
+			const details = document.querySelector('.item-details');
+			const title = document.querySelector('#itemTitle');
+			const description = document.querySelector('#itemDescription');
+			title.textContent = 'Loading item details…';
+			description.textContent = '';
+			details.hidden = false;
+			try {
+				const response = await fetch(`https://archive.org/metadata/${encodeURIComponent(itemId)}`, { cache: 'no-store' });
+				if (!response.ok) throw new Error(`Metadata request failed (${response.status})`);
+				const metadata = await response.json();
+				if (document.querySelector('#reviewButton').dataset.itemId !== itemId) return;
+				title.textContent = String(metadata.metadata?.title || itemId);
+				description.textContent = descriptionToText(metadata.metadata?.description) || 'No description is available for this item.';
+			} catch {
+				if (document.querySelector('#reviewButton').dataset.itemId !== itemId) return;
+				title.textContent = itemId;
+				description.textContent = 'Could not load the item description.';
+			}
+		}
+
+		async function loadRandomItem() {
+			const status = document.querySelector('#status');
+			const button = document.querySelector('#randomButton');
+			const viewer = document.querySelector('#archiveViewer');
+			const reviewButton = document.querySelector('#reviewButton');
+			button.disabled = true;
+			reviewButton.disabled = true;
+			document.querySelector('#shareButton').disabled = true;
+			status.textContent = 'Choosing an item...';
+
+			try {
+				const itemId = await getRandomItemId();
+				viewer.src = `https://archive.org/embed/${encodeURIComponent(itemId)}`;
+				reviewButton.dataset.itemId = itemId;
+				reviewButton.disabled = false;
+				document.querySelector('#shareButton').dataset.itemId = itemId;
+				document.querySelector('#shareButton').disabled = false;
+				status.textContent = `Showing ${itemId}`;
+				loadItemDetails(itemId);
+			} catch (error) {
+				viewer.removeAttribute('src');
+				status.textContent = error.message;
+			} finally {
+				button.disabled = false;
+			}
+		}
+
+		document.querySelector('#randomButton').addEventListener('click', loadRandomItem);
+		document.querySelector('#reviewButton').addEventListener('click', (event) => {
+			const itemId = event.currentTarget.dataset.itemId;
+			if (!itemId) return;
+			const reviewUrl = `https://archive.org/details/${encodeURIComponent(itemId)}/reviews`;
+			window.open(reviewUrl, '_blank', 'noopener,noreferrer');
+		});
+		document.querySelector('#shareButton').addEventListener('click', async (event) => {
+			const itemId = event.currentTarget.dataset.itemId;
+			if (!itemId) return;
+
+			const shareUrl = new URL('https://yan1website.github.io/YAN1.home/archive2.html');
+			shareUrl.searchParams.set('item', itemId);
+			const url = shareUrl.toString();
+			const itemTitle = document.querySelector('#itemTitle').textContent.trim();
+			const title = itemTitle && itemTitle !== 'Loading item details…' ? itemTitle : itemId;
+			const text = `YAN1 APP GEN 1\nYAN1 APP GEN 1\nFound something interesting — have a look! ✨\n▰▰▱ ${title}\nTHANKS 🙏`;
+
+			try {
+				if (navigator.share) {
+					await navigator.share({ title, text, url });
+				} else if (navigator.clipboard?.writeText) {
+					await navigator.clipboard.writeText(`${text}\n${url}`);
+					status.textContent = 'Share link copied.';
+				} else {
+					window.prompt('Copy this share message and link:', `${text}\n${url}`);
+				}
+			} catch (error) {
+				if (error.name !== 'AbortError') window.prompt('Copy this share message and link:', `${text}\n${url}`);
+			}
+		});
+		loadRandomItem();
+	</script>
+</body>
+</html>

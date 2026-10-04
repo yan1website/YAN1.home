@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101820">
+  <title>YAN1 News</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; }
+    body { display: grid; grid-template-rows: auto minmax(0, 1fr); background: #101820; color: #f4f7fa; font: 14px/1.4 system-ui, sans-serif; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 54px; padding: 8px 16px; background: #17232d; border-bottom: 1px solid #34424d; }
+    h1 { margin: 0; font-size: 17px; }
+    header a { color: #b9dcff; text-decoration: none; }
+    header a:hover { text-decoration: underline; }
+    iframe { display: block; width: 100%; height: 100%; border: 0; background: white; }
+  </style>
+  <script src="app-launch.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>YAN1 News</h1>
+    <a href="https://yan1website.github.io/YAN1.news/" target="_blank" rel="noopener noreferrer">Open news in a new tab ↗</a>
+  </header>
+  <iframe
+    title="YAN1 News"
+    src="https://yan1website.github.io/YAN1.news/"
+    allow="autoplay; fullscreen; picture-in-picture; web-share"
+    allowfullscreen>
+  </iframe>
+</body>
+</html>

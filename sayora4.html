@@ -1,0 +1,261 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10131d">
+  <title>Sayora — Comments</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    body { min-height: 100vh; margin: 0; padding: 28px 16px 40px; color: #f7f5ff; background: radial-gradient(ellipse at 50% -15%, #46306e 0, #191827 42%, #10131d 78%); }
+    main { width: min(100%, 820px); margin: 0 auto; }
+    .brand { color: #c6a8ff; font-size: 12px; font-weight: 750; letter-spacing: .2em; text-transform: uppercase; }
+    h1 { margin: 10px 0 8px; font-size: clamp(28px, 6vw, 40px); letter-spacing: -.04em; }
+    .intro { margin: 0 0 20px; color: #aaa7ba; line-height: 1.6; }
+    .source { margin: 0 0 18px; padding: 13px 15px; border: 1px solid #343044; border-radius: 12px; background: #191827; overflow-wrap: anywhere; }
+    .source a, .field-link { color: #c6a8ff; }
+    .search { display: flex; gap: 10px; margin: 0 0 18px; }
+    .search input { min-width: 0; flex: 1; padding: 12px 14px; border: 1px solid #49435f; border-radius: 10px; color: #f7f5ff; background: #191827; font: inherit; }
+    .search button { padding: 12px 18px; border: 0; border-radius: 10px; color: #171321; background: #c6a8ff; font: inherit; font-weight: 700; cursor: pointer; }
+    .search button:hover { background: #d6c1ff; }
+    .search button:focus-visible, .search input:focus-visible { outline: 2px solid #eee3ff; outline-offset: 2px; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    #status, #search-status { min-height: 1.5em; margin: 0 0 14px; color: #d7d1e3; font-size: 14px; }
+    #status.error, #search-status.error { color: #ffc4c4; }
+    #search-results:not([hidden]) { display: grid; gap: 14px; margin-bottom: 14px; }
+    #comments { display: grid; gap: 14px; }
+    .comment { position: relative; padding: clamp(16px, 3vw, 22px); border: 1px solid #343044; border-radius: 15px; background: rgb(25 24 39 / 94%); }
+    .profile-link { position: absolute; top: 12px; right: 12px; display: grid; width: 40px; height: 40px; place-items: center; margin: 0; padding: 0; border: 1px solid #71608e; border-radius: 9px; color: #f7f5ff; background: #29243a; font: inherit; font-size: 22px; cursor: pointer; }
+    .profile-link:hover { background: #38304c; }
+    .profile-link:disabled { opacity: .5; cursor: not-allowed; }
+    .comment h2 { margin: 0 0 12px; padding-right: 48px; color: #c6a8ff; font-size: 14px; }
+    .field { padding: 11px 0; border-top: 1px solid #39364b; overflow-wrap: anywhere; }
+    .field-name { display: block; margin-bottom: 5px; color: #bba2e8; font-size: 12px; font-weight: 700; }
+    .field-value { margin: 0; color: #f1edf8; line-height: 1.6; white-space: pre-wrap; }
+    .field-image { display: block; max-width: 100%; max-height: 520px; margin-top: 10px; border-radius: 10px; object-fit: contain; background: #12121c; }
+  </style>
+  <script src="app-launch.js" defer></script>
+  <script src="sayora-image-viewer.js" defer></script>
+</head>
+<body>
+  <main>
+    <div class="brand">Sayora</div>
+    <h1>Comments</h1>
+    <p class="intro">Responses linked to this image.</p>
+    <form class="search" id="search-form" role="search">
+      <label class="visually-hidden" for="search-input">Search comments in column B</label>
+      <input id="search-input" name="q" type="search" placeholder="Search comments…" autocomplete="off">
+      <button type="submit">Search</button>
+    </form>
+    <p id="search-status" role="status" aria-live="polite" hidden></p>
+    <section id="search-results" aria-label="Search results" hidden></section>
+    <p class="source" id="source" hidden></p>
+    <p id="status" role="status" aria-live="polite">Loading matching comments…</p>
+    <section id="comments" aria-label="Comments"></section>
+  </main>
+  <script>
+    const SPREADSHEET_ID = '1etJJ_n-kESuu-QaO1xiKdVyH02G2b8WbWGgNciEWPE4';
+    const SHEET_NAME = 'Form Responses 1';
+    const sourceUrl = getSourceUrl();
+    const source = document.querySelector('#source');
+    const status = document.querySelector('#status');
+    const comments = document.querySelector('#comments');
+    const searchStatus = document.querySelector('#search-status');
+    const searchResults = document.querySelector('#search-results');
+    const searchForm = document.querySelector('#search-form');
+    const searchInput = document.querySelector('#search-input');
+    let searchRequest = 0;
+
+    function getSourceUrl() {
+      const value = new URLSearchParams(window.location.search).get('To');
+      if (!value) return '';
+      try {
+        const url = new URL(value);
+        return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '';
+      } catch {
+        return '';
+      }
+    }
+
+    function sheetQueryUrl(query) {
+      const params = new URLSearchParams({ sheet: SHEET_NAME, tqx: 'out:json', tq: query });
+      return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?${params}`;
+    }
+
+    async function querySheet(query) {
+      const response = await fetch(sheetQueryUrl(query), { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Google Sheets request failed (${response.status}).`);
+      const text = await response.text();
+      const start = text.indexOf('{');
+      const end = text.lastIndexOf('}');
+      if (start < 0 || end < start) throw new Error('The sheet returned an invalid response.');
+      const result = JSON.parse(text.slice(start, end + 1));
+      if (result.status !== 'ok') throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed.');
+      return result.table;
+    }
+
+    function valueOf(cell) {
+      return cell ? String(cell.f ?? cell.v ?? '').trim() : '';
+    }
+
+    function escapeQueryValue(value) {
+      return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+
+    function profileEmail(row, columns) {
+      const cells = row.c || [];
+      const emailColumn = (columns || []).findIndex(column => /e-?mail/i.test(String(column.label || column.id || '')));
+      const labeledEmail = emailColumn >= 0 ? valueOf(cells[emailColumn]) : '';
+      return (labeledEmail.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || cells.map(valueOf).join(' ').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [])[0] || '';
+    }
+
+    function addProfileButton(card, email) {
+      card.querySelector('.profile-link')?.remove();
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'profile-link';
+      button.textContent = '🪪';
+      button.setAttribute('aria-label', email ? `Open profile for ${email}` : 'Profile unavailable: email not found');
+      button.title = email ? `Open profile for ${email}` : 'Profile unavailable: email not found';
+      button.disabled = !email;
+      if (email) button.addEventListener('click', () => {
+        const url = new URL('https://yan1website.github.io/YAN1.home/profile/index.html');
+        url.searchParams.set('prof', email);
+        window.open(url.href, '_blank', 'noopener,noreferrer');
+      });
+      card.appendChild(button);
+    }
+
+    function appendValue(container, value, label) {
+      const pattern = /https?:\/\/[^\s<>"']+/ig;
+      let lastIndex = 0;
+      let match;
+      let hasUrl = false;
+      while ((match = pattern.exec(value))) {
+        hasUrl = true;
+        const url = match[0].replace(/[),.;]+$/, '');
+        container.append(document.createTextNode(value.slice(lastIndex, match.index)));
+        const link = document.createElement('a');
+        link.className = 'field-link';
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = url;
+        container.appendChild(link);
+        if (/(image|photo|picture|pic|img)/i.test(label) || /\.(?:png|jpe?g|gif|webp|avif|svg)(?:[?#].*)?$/i.test(url)) {
+          const image = document.createElement('img');
+          image.className = 'field-image';
+          image.src = url;
+          image.alt = 'Image attached to this comment';
+          image.loading = 'lazy';
+          image.onerror = () => image.remove();
+          container.appendChild(image);
+        }
+        lastIndex = match.index + url.length;
+        pattern.lastIndex = lastIndex;
+      }
+      if (!hasUrl) container.textContent = value;
+      else container.append(document.createTextNode(value.slice(lastIndex)));
+    }
+
+    function renderComment(row, columns, index, target = comments) {
+      const card = document.createElement('article');
+      card.className = 'comment';
+      addProfileButton(card, profileEmail(row, columns));
+      const title = document.createElement('h2');
+      title.textContent = `Comment ${index + 1}`;
+      card.appendChild(title);
+      (row.c || []).forEach((cell, columnIndex) => {
+        const label = String(columns[columnIndex]?.label || columns[columnIndex]?.id || `Column ${columnIndex + 1}`).trim();
+        if (columnIndex === 3 || label.toLowerCase() === 'to') return;
+        const value = valueOf(cell);
+        if (!value) return;
+        const field = document.createElement('div');
+        field.className = 'field';
+        const name = document.createElement('span');
+        name.className = 'field-name';
+        name.textContent = label;
+        const content = document.createElement('p');
+        content.className = 'field-value';
+        appendValue(content, value, label);
+        field.append(name, content);
+        card.appendChild(field);
+      });
+      target.appendChild(card);
+    }
+
+    async function loadComments() {
+      if (!sourceUrl) {
+        status.textContent = 'No valid image URL was provided. Open comments from a gallery entry.';
+        status.classList.add('error');
+        return;
+      }
+      source.hidden = false;
+      source.append(document.createTextNode('Comments for '));
+      const link = document.createElement('a');
+      link.href = sourceUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = sourceUrl;
+      source.appendChild(link);
+
+      try {
+        const escapedUrl = escapeQueryValue(sourceUrl);
+        const table = await querySheet(`select * where D = '${escapedUrl}'`);
+        const rows = table.rows || [];
+        if (!rows.length) {
+          status.textContent = 'No comments have been posted for this image yet.';
+          return;
+        }
+        rows.forEach((row, index) => renderComment(row, table.cols || [], index));
+        status.textContent = `${rows.length} matching comment${rows.length === 1 ? '' : 's'} found.`;
+      } catch (error) {
+        status.textContent = error.message || 'Unable to load comments right now.';
+        status.classList.add('error');
+      }
+    }
+
+    async function searchComments(query) {
+      const requestId = ++searchRequest;
+      searchStatus.hidden = false;
+      searchStatus.classList.remove('error');
+      searchStatus.textContent = 'Searching comments…';
+      try {
+        const table = await querySheet(`select * where B contains '${escapeQueryValue(query)}'`);
+        if (requestId !== searchRequest) return;
+        const rows = table.rows || [];
+        searchResults.replaceChildren();
+        searchResults.hidden = false;
+        if (!rows.length) {
+          searchStatus.textContent = 'No comments matching that search were found in column B.';
+          return;
+        }
+        rows.forEach((row, index) => renderComment(row, table.cols || [], index, searchResults));
+        searchStatus.textContent = `${rows.length} matching comment${rows.length === 1 ? '' : 's'} found.`;
+      } catch (error) {
+        if (requestId !== searchRequest) return;
+        searchStatus.hidden = false;
+        searchStatus.textContent = error.message || 'Unable to search comments right now.';
+        searchStatus.classList.add('error');
+      }
+    }
+
+    searchForm.addEventListener('submit', event => {
+      event.preventDefault();
+      const query = searchInput.value.trim();
+      if (!query) {
+        searchRequest++;
+        searchStatus.hidden = false;
+        searchStatus.textContent = 'Enter a search term to search column B.';
+        searchStatus.classList.add('error');
+        searchInput.focus();
+        return;
+      }
+      searchComments(query);
+    });
+
+    loadComments();
+  </script>
+</body>
+</html>

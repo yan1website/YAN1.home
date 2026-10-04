@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>More Games</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f0e7;
+      color: #17211b;
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+
+    .game-card {
+      background: #fffdf8;
+      border: 1px solid #ded7c9;
+      box-shadow: 6px 8px 0 rgba(23, 33, 27, .06);
+      padding: 12px;
+      text-align: center;
+    }
+
+    .game-card img {
+      width: 100%;
+      height: 240px;
+      object-fit: contain;
+      display: block;
+      background: #d8ddd4;
+    }
+
+    .game-card button {
+      margin-top: 12px;
+      padding: 10px 16px;
+      border: 0;
+      background: #e85d3f;
+      color: white;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .game-card button:disabled {
+      cursor: wait;
+      opacity: .6;
+    }
+
+    .game-card .share-button {
+      margin-left: 8px;
+      padding: 6px 9px;
+      background: #263b32;
+      font-size: 0.95rem;
+    }
+
+    #status {
+      text-align: center;
+      min-height: 1.5em;
+    }
+
+    .error {
+      color: #a32918;
+    }
+  </style>
+  <script src="app-launch.js" defer></script>
+</head>
+<body>
+  <div class="wrap">
+    <h1>More Games</h1>
+    <p id="status" role="status">Loading games...</p>
+    <div id="games-grid" class="games-grid"></div>
+  </div>
+
+  <template id="game-card-template">
+    <div class="game-card">
+      <img alt="Game image">
+      <button type="button">Open game</button>
+      <button class="share-button" type="button" aria-label="Share game">ᯓ➤</button>
+    </div>
+  </template>
+
+  <script>
+    const SHEET_ID = '1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M';
+    const SHEET_NAME = 'Sheet1';
+    const ADDICTING_GAMES_URL = 'https://www.addictinggames.com/embed/html5-games/';
+
+    const status = document.querySelector('#status');
+    const gamesGrid = document.querySelector('#games-grid');
+    const gameCardTemplate = document.querySelector('#game-card-template');
+
+    function sheetQueryUrl(query) {
+      const params = new URLSearchParams({
+        sheet: SHEET_NAME,
+        tqx: 'out:json',
+        tq: query
+      });
+      return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`;
+    }
+
+    async function querySheet(query) {
+      const response = await fetch(sheetQueryUrl(query), { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Google Sheets request failed (${response.status})`);
+
+      const text = await response.text();
+      const start = text.indexOf('{');
+      const end = text.lastIndexOf('}');
+      if (start < 0 || end < start) throw new Error('Invalid Google Sheets response');
+
+      const result = JSON.parse(text.slice(start, end + 1));
+      if (result.status !== 'ok') {
+        throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed');
+      }
+      return result.table;
+    }
+
+    function shuffle(items) {
+      for (let index = items.length - 1; index > 0; index -= 1) {
+        const randomIndex = Math.floor(Math.random() * (index + 1));
+        [items[index], items[randomIndex]] = [items[randomIndex], items[index]];
+      }
+      return items;
+    }
+
+    async function shareGame(gameId) {
+      const url = new URL('https://yan1website.github.io/YAN1.home/games2.html');
+      url.searchParams.set('txt', gameId);
+      const text = 'YAN1 APP GEN 1\nYAN1 APP GEN 1\nFound something interesting — have a look! ✨\n🎮 \nTHANKS 🙏';
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: 'Game', text, url: url.href });
+        } else if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(`${text}\n${url.href}`);
+          alert('Share message and link copied. You can paste them into any app.');
+        } else {
+          window.prompt('Copy this share message and link:', `${text}\n${url.href}`);
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') window.prompt('Copy this share message and link:', `${text}\n${url.href}`);
+      }
+    }
+
+    async function loadGames() {
+      try {
+        const table = await querySheet('select E, F where E is not null and F is not null');
+        const games = (table.rows || []).map((row) => {
+          const cells = row.c || [];
+          return {
+            imageUrl: String(cells[0]?.v || '').trim(),
+            gameId: String(cells[1]?.v || '').trim()
+          };
+        }).filter((game) => /^https?:\/\//i.test(game.imageUrl) && game.gameId);
+
+        if (!games.length) throw new Error('No valid image and game ID rows were found.');
+
+        gamesGrid.replaceChildren();
+        const fragment = document.createDocumentFragment();
+        shuffle(games).forEach(({ imageUrl, gameId }) => {
+          const card = gameCardTemplate.content.cloneNode(true);
+          const image = card.querySelector('img');
+          const button = card.querySelector('button:not(.share-button)');
+          const shareButton = card.querySelector('.share-button');
+          image.src = imageUrl;
+          image.alt = `Game ${gameId}`;
+          button.addEventListener('click', () => {
+            window.open(`${ADDICTING_GAMES_URL}${encodeURIComponent(gameId)}`, '_blank', 'noopener,noreferrer');
+          });
+          shareButton.addEventListener('click', () => shareGame(gameId));
+          fragment.appendChild(card);
+        });
+        gamesGrid.appendChild(fragment);
+        status.textContent = `${games.length} games loaded in random order.`;
+      } catch (error) {
+        status.textContent = error.message || 'Unable to load a game right now.';
+        status.classList.add('error');
+      }
+    }
+
+    loadGames();
+  </script>
+</body>
+</html>

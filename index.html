@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>Explore</title>
+  <style>
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; color: #f8fafc; background: #111827; font-family: system-ui, sans-serif; }
+    header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 18px; color: #e5e7eb; background: rgb(17 24 39 / 92%); border-bottom: 1px solid #374151; backdrop-filter: blur(8px); transition: padding 180ms ease, transform 180ms ease; }
+    header.hidden { transform: translateY(-110%); }
+    header.compact { padding-top: 5px; padding-bottom: 5px; }
+    .quick-links { display: flex; gap: 8px; }
+    .quick-link { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid #6b7280; border-radius: 9px; color: #f9fafb; background: #374151; font-size: 24px; line-height: 1; text-decoration: none; transition: width 180ms ease, height 180ms ease, font-size 180ms ease; }
+    .quick-link:hover, .quick-link:focus-visible { background: #4b5563; outline: 2px solid #93c5fd; outline-offset: 2px; }
+    header.compact .quick-link { width: 34px; height: 34px; font-size: 19px; }
+    header p { min-width: 0; max-width: 1100px; margin: 0; overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+    #pages { width: 100%; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .page { display: grid; grid-template-rows: 54px minmax(0, 1fr); width: 100%; height: min(92vh, 1100px); min-height: 680px; min-width: 0; overflow: hidden; background: white; border: 0; border-radius: 0; box-shadow: none; }
+    .page + .page { border-top: 3px solid var(--divider-color, #38bdf8); }
+    .page-label { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 54px; padding: 8px 16px; color: #f3f4f6; background: #1f2937; border-bottom: 1px solid #374151; font-size: 16px; font-weight: 650; }
+    .page-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .page-name { color: var(--name-color, #f3f4f6); }
+    .fullscreen-button { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 38px; padding: 7px; color: #f9fafb; background: #374151; border: 1px solid #6b7280; border-radius: 6px; cursor: pointer; }
+    .fullscreen-button:hover, .fullscreen-button:focus-visible { color: white; background: #4b5563; outline: 2px solid #93c5fd; outline-offset: 2px; }
+    .fullscreen-button svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: square; stroke-linejoin: miter; }
+    .page-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+    .page-action { display: grid; place-items: center; width: 38px; height: 38px; padding: 7px; color: #f9fafb; background: #374151; border: 1px solid #6b7280; border-radius: 6px; cursor: pointer; }
+    .page-action:hover, .page-action:focus-visible { color: white; background: #4b5563; outline: 2px solid #93c5fd; outline-offset: 2px; }
+    .page-action svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .page:fullscreen { width: 100vw; height: 100vh; min-height: 0; background: white; }
+    .page:fullscreen iframe { height: 100%; }
+    iframe { display: block; width: 100%; height: 100%; min-height: 0; border: 0; background: white; }
+    #sentinel { height: 50px; display: grid; place-items: center; color: #9ca3af; font-size: 14px; }
+    #message { padding: 32px 18px; text-align: center; color: #fca5a5; }
+  </style>
+  <script src="app-launch.js" defer></script>
+</head>
+<body>
+  <header id="site-header">
+    <nav class="quick-links" aria-label="Quick links">
+      <a class="quick-link" href="https://yan1website.github.io/YAN1.home/profile/index.html" target="_blank" rel="noopener noreferrer" aria-label="Open profile" title="Profile">🪪</a>
+      <a class="quick-link" href="https://yan1website.github.io/YAN1.home/search/index.html" target="_blank" rel="noopener noreferrer" aria-label="Open search" title="Search">🔎</a>
+    </nav>
+    <p id="status">Picking a page to start…</p>
+  </header>
+  <main id="pages" aria-live="polite"></main>
+  <div id="sentinel" aria-hidden="true">Loading more pages as you scroll…</div>
+  <div id="message" role="status"></div>
+
+  <script>
+    const pages = document.querySelector('#pages');
+    const status = document.querySelector('#status');
+    const siteHeader = document.querySelector('#site-header');
+    const sentinel = document.querySelector('#sentinel');
+    const message = document.querySelector('#message');
+    let remaining = [];
+    let lastScrollY = window.scrollY;
+    let scrollFrame = 0;
+    let sentinelReobserveScheduled = false;
+    const savedMedia = new WeakMap();
+    const mediaWatchers = new WeakMap();
+    const visiblePages = new Set();
+
+    window.shareEmbeddedPage = async data => {
+      if (window.Android && typeof window.Android.shareText === 'function') {
+        const message = [data.title, data.text, data.url].filter(Boolean).join('\n');
+        return window.Android.shareText(message);
+      }
+      if (navigator.share) return navigator.share(data);
+      throw new Error('Native sharing is unavailable.');
+    };
+
+    function deliverPythonCallback(callbackId, suffix, value) {
+      if (typeof callbackId !== 'string' || !callbackId) return false;
+      const callbackName = `${callbackId}_${suffix}`;
+
+      function findCallback(doc, targetWindow) {
+        const callback = targetWindow[callbackName];
+        if (typeof callback === 'function') {
+          callback(value);
+          return true;
+        }
+
+        for (const frame of doc.querySelectorAll('iframe')) {
+          const childDocument = frame.contentDocument;
+          if (childDocument && findCallback(childDocument, frame.contentWindow)) return true;
+        }
+        return false;
+      }
+
+      if (typeof window[callbackName] === 'function') {
+        window[callbackName](value);
+        return true;
+      }
+
+      for (const frame of document.querySelectorAll('iframe')) {
+        const childDocument = frame.contentDocument;
+        if (childDocument && findCallback(childDocument, frame.contentWindow)) return true;
+      }
+      return false;
+    }
+
+    window.onPythonResult = (output, callbackId) => {
+      if (!deliverPythonCallback(callbackId, 'success', output)) {
+        console.warn('No page callback found for Python result.', callbackId);
+      }
+    };
+
+    window.onPythonError = (errorMessage, callbackId) => {
+      if (!deliverPythonCallback(callbackId, 'error', errorMessage)) {
+        console.error('No page callback found for Python error.', callbackId);
+      }
+    };
+
+    function shuffle(items) {
+      for (let i = items.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [items[i], items[j]] = [items[j], items[i]];
+      }
+      return items;
+    }
+
+    function colorForFilename(filename) {
+      let hash = 0;
+      for (const character of filename) {
+        hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+      }
+      return `hsl(${hash % 360} 88% 70%)`;
+    }
+
+    function isValidPagePath(path) {
+      return typeof path === 'string'
+        && path.endsWith('.html')
+        && !path.includes('\\')
+        && path.split('/').every(segment => segment && segment !== '.' && segment !== '..');
+    }
+
+    function encodedPagePath(path) {
+      return path.split('/').map(encodeURIComponent).join('/');
+    }
+
+    function activateFrame(frame) {
+      if (frame.dataset.active !== 'true') {
+        frame.dataset.active = 'true';
+        setFrameVisibility(frame, true);
+      }
+      status.textContent = `Showing: ${frame.closest('.page').dataset.filename}`;
+      if (frame.dataset.loaded === 'true') {
+        resumeMedia(frame);
+      } else if (frame.dataset.requested !== 'true') {
+        frame.dataset.requested = 'true';
+        frame.src = new URL(encodedPagePath(frame.dataset.src), document.baseURI).href;
+      }
+    }
+
+    function pauseFrame(frame) {
+      if (frame.dataset.active !== 'true') return;
+      frame.dataset.active = 'false';
+      pauseMedia(frame);
+      setFrameVisibility(frame, false);
+    }
+
+    function setFrameVisibility(frame, active) {
+      const value = active ? 'visible' : 'hidden';
+      if (frame.dataset.visibility === value) return;
+      frame.dataset.visibility = value;
+      try {
+        const doc = frame.contentDocument;
+        const view = frame.contentWindow;
+        if (!doc || !view) return;
+        try { Object.defineProperty(doc, 'hidden', { configurable: true, get: () => !active }); } catch (_) {}
+        try { Object.defineProperty(doc, 'visibilityState', { configurable: true, get: () => value }); } catch (_) {}
+        try { doc.dispatchEvent(new view.Event('visibilitychange')); } catch (_) {}
+      } catch (_) {}
+    }
+
+    function getMedia(frame) {
+      try {
+        return frame.contentDocument?.querySelectorAll('audio, video') || [];
+      } catch (_) {
+        return [];
+      }
+    }
+
+    function pauseMedia(frame) {
+      const states = savedMedia.get(frame) || new Map();
+      for (const media of getMedia(frame)) {
+        holdMedia(frame, media, states);
+      }
+      savedMedia.set(frame, states);
+    }
+
+    function holdMedia(frame, media, states = savedMedia.get(frame) || new Map()) {
+      if (!states.has(media)) {
+        states.set(media, {
+          time: media.currentTime,
+          wasPlaying: !media.paused && !media.ended,
+          preload: media.getAttribute('preload'),
+          autoplay: media.hasAttribute('autoplay')
+        });
+      } else if (!media.paused && !media.ended) {
+        const state = states.get(media);
+        state.time = media.currentTime;
+        state.wasPlaying = true;
+      }
+      try { media.pause(); } catch (_) {}
+      media.preload = 'none';
+      media.autoplay = false;
+      savedMedia.set(frame, states);
+    }
+
+    function resumeMedia(frame) {
+      const states = savedMedia.get(frame);
+      if (!states) return;
+      for (const [media, state] of states) {
+        if (!media.isConnected) continue;
+        if (state.preload === null) media.removeAttribute('preload');
+        else media.setAttribute('preload', state.preload);
+        if (state.autoplay) media.setAttribute('autoplay', '');
+        else media.removeAttribute('autoplay');
+        if (state.wasPlaying) {
+          try { media.currentTime = state.time; } catch (_) {}
+          Promise.resolve(media.play()).catch(() => {});
+        }
+      }
+      states.clear();
+    }
+
+    function watchMedia(frame) {
+      try {
+        const doc = frame.contentDocument;
+        if (!doc) return;
+        const existing = mediaWatchers.get(frame);
+        if (existing?.doc === doc) return;
+        if (existing) existing.doc.removeEventListener('play', existing.onPlay, true);
+        const onPlay = event => {
+          if (frame.dataset.active === 'true') return;
+          const media = event.target;
+          const states = savedMedia.get(frame) || new Map();
+          if (!media || !['AUDIO', 'VIDEO'].includes(media.tagName)) return;
+          holdMedia(frame, media, states);
+        };
+        doc.addEventListener('play', onPlay, true);
+        mediaWatchers.set(frame, { doc, onPlay });
+      } catch (_) {}
+    }
+
+    function loadFrame(frame) {
+      if (frame.dataset.loaded === 'true' || frame.dataset.requested === 'true') return;
+      frame.dataset.requested = 'true';
+      frame.src = new URL(encodedPagePath(frame.dataset.src), document.baseURI).href;
+    }
+
+    function unloadFrame(frame) {
+      if (frame.dataset.loaded !== 'true' && frame.dataset.requested !== 'true') return;
+      pauseFrame(frame);
+      try {
+        const watcher = mediaWatchers.get(frame);
+        if (watcher) watcher.doc.removeEventListener('play', watcher.onPlay, true);
+      } catch (_) {}
+      mediaWatchers.delete(frame);
+      frame.dataset.loaded = 'false';
+      frame.dataset.requested = 'false';
+      frame.dataset.visibility = '';
+      frame.src = 'about:blank';
+    }
+
+    const loadObserver = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) loadFrame(entry.target.querySelector('iframe'));
+      }
+    }, { rootMargin: '300px 0px' });
+
+    const activeObserver = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        const frame = entry.target.querySelector('iframe');
+        if (entry.isIntersecting) {
+          visiblePages.add(entry.target);
+          if (document.visibilityState === 'visible' && document.hasFocus()) {
+            activateFrame(frame);
+          } else pauseFrame(frame);
+        } else {
+          visiblePages.delete(entry.target);
+          pauseFrame(frame);
+        }
+      }
+    });
+
+    function observeDistantPages() {
+      const observer = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) unloadFrame(entry.target.querySelector('iframe'));
+        }
+      }, { rootMargin: `${window.innerHeight * 3}px 0px` });
+      for (const section of pages.querySelectorAll('.page')) observer.observe(section);
+      return observer;
+    }
+
+    let recycleObserver = observeDistantPages();
+
+    function refreshVisiblePages() {
+      for (const section of visiblePages) {
+        const frame = section.querySelector('iframe');
+        if (document.visibilityState === 'visible' && document.hasFocus()) activateFrame(frame);
+        else pauseFrame(frame);
+      }
+    }
+
+    function appendPage(filename) {
+      const section = document.createElement('section');
+      section.className = 'page';
+      section.dataset.filename = filename;
+      section.style.setProperty('--divider-color', `hsl(${(pages.children.length * 137.508) % 360} 82% 62%)`);
+      const label = document.createElement('div');
+      label.className = 'page-label';
+      const pageName = document.createElement('span');
+      pageName.className = 'page-name';
+      pageName.textContent = filename;
+      pageName.style.setProperty('--name-color', colorForFilename(filename));
+      const actions = document.createElement('div');
+      actions.className = 'page-actions';
+      const reloadButton = document.createElement('button');
+      reloadButton.className = 'page-action';
+      reloadButton.type = 'button';
+      reloadButton.title = `Reload ${filename}`;
+      reloadButton.setAttribute('aria-label', `Reload ${filename}`);
+      reloadButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"/></svg>';
+      reloadButton.addEventListener('click', () => {
+        frame.dataset.loaded = 'false';
+        frame.dataset.requested = 'false';
+        loadFrame(frame);
+      });
+
+      const shareUrl = `https://yan1website.github.io/YAN1.home/${encodedPagePath(filename)}`;
+      const shareButton = document.createElement('button');
+      shareButton.className = 'page-action';
+      shareButton.type = 'button';
+      shareButton.title = `Share ${filename}`;
+      shareButton.setAttribute('aria-label', `Share ${filename}`);
+      shareButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/></svg>';
+      shareButton.addEventListener('click', async () => {
+        const shareTitle = 'YAN1 APP GEN 1';
+        const shareText = [
+          shareTitle,
+          'Found something interesting — have a look! ✨',
+          `🌐 ${filename}`,
+          'THANKS 🙏'
+        ].join('\n');
+        const fullMessage = `${shareTitle}\n${shareText}\n\n${shareUrl}`;
+
+        try {
+          if (window.Android && typeof window.Android.shareText === 'function') {
+            window.Android.shareText(fullMessage);
+          } else if (navigator.share) {
+            await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+          } else {
+            throw new Error('Native sharing is unavailable.');
+          }
+        } catch (error) {
+          if (error.name === 'AbortError') return;
+          try {
+            if (navigator.clipboard && window.isSecureContext) {
+              await navigator.clipboard.writeText(fullMessage);
+              status.textContent = `Share message copied: ${shareUrl}`;
+              return;
+            }
+          } catch (_) {}
+          window.prompt('Copy this message to share:', fullMessage);
+        }
+      });
+
+      const fullscreenButton = document.createElement('button');
+      fullscreenButton.className = 'fullscreen-button';
+      fullscreenButton.type = 'button';
+      fullscreenButton.title = `Open ${filename} in a new tab`;
+      fullscreenButton.setAttribute('aria-label', `Open ${filename} in a new tab`);
+      fullscreenButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3 11 13"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>';
+      fullscreenButton.addEventListener('click', () => {
+        window.open(shareUrl, '_blank', 'noopener,noreferrer');
+      });
+      actions.append(reloadButton, shareButton, fullscreenButton);
+      label.append(pageName, actions);
+      const frame = document.createElement('iframe');
+      frame.title = filename;
+      frame.loading = 'lazy';
+      frame.allow = 'accelerometer; autoplay; camera; clipboard-read; clipboard-write; display-capture; encrypted-media; fullscreen; geolocation; gyroscope; magnetometer; microphone; midi; payment; picture-in-picture; publickey-credentials-get; screen-wake-lock; usb; web-share; xr-spatial-tracking';
+      frame.dataset.src = filename;
+      frame.addEventListener('load', () => {
+        if (frame.dataset.requested !== 'true') return;
+        try {
+          if (frame.contentWindow.location.href === 'about:blank') return;
+        } catch (_) {}
+        frame.dataset.loaded = 'true';
+        try {
+          Object.defineProperty(frame.contentWindow.navigator, 'share', {
+            configurable: true,
+            value: data => window.shareEmbeddedPage(data)
+          });
+        } catch (_) {}
+        watchMedia(frame);
+        frame.dataset.visibility = '';
+        setFrameVisibility(frame, frame.dataset.active === 'true');
+        if (frame.dataset.active !== 'true') {
+          pauseMedia(frame);
+          return;
+        }
+      });
+      frame.addEventListener('error', () => {
+        pageName.textContent = `${filename} could not be loaded`;
+      });
+      section.append(label, frame);
+      pages.append(section);
+      loadObserver.observe(section);
+      activeObserver.observe(section);
+      recycleObserver.observe(section);
+    }
+
+    function appendNext() {
+      if (!window.pageFiles) return;
+      if (!remaining.length) remaining = shuffle([...window.pageFiles]);
+      appendPage(remaining.shift());
+    }
+
+    function handleScroll() {
+      scrollFrame = 0;
+      const currentScrollY = window.scrollY;
+      const scrollDelta = currentScrollY - lastScrollY;
+      if (currentScrollY <= 24) {
+        siteHeader.classList.remove('hidden', 'compact');
+      } else if (scrollDelta > 6) {
+        siteHeader.classList.add('hidden');
+        siteHeader.classList.remove('compact');
+      } else if (scrollDelta < -6) {
+        siteHeader.classList.remove('hidden');
+        siteHeader.classList.add('compact');
+      }
+      lastScrollY = currentScrollY;
+    }
+
+    window.addEventListener('scroll', () => {
+      if (!scrollFrame) scrollFrame = requestAnimationFrame(handleScroll);
+    }, { passive: true });
+    window.addEventListener('resize', () => {
+      recycleObserver.disconnect();
+      recycleObserver = observeDistantPages();
+    });
+    window.addEventListener('blur', refreshVisiblePages);
+    window.addEventListener('focus', refreshVisiblePages);
+    document.addEventListener('visibilitychange', () => {
+      refreshVisiblePages();
+    });
+    document.addEventListener('fullscreenchange', refreshVisiblePages);
+
+    function scheduleSentinelReobserve() {
+      if (sentinelReobserveScheduled) return;
+      sentinelReobserveScheduled = true;
+      sentinelObserver.unobserve(sentinel);
+      requestAnimationFrame(() => {
+        sentinelReobserveScheduled = false;
+        sentinelObserver.observe(sentinel);
+      });
+    }
+
+    const sentinelObserver = new IntersectionObserver(entries => {
+      if (!entries[0].isIntersecting) return;
+      appendNext();
+      scheduleSentinelReobserve();
+    }, { rootMargin: '400px 0px' });
+    sentinelObserver.observe(sentinel);
+
+    async function start() {
+      try {
+        const response = await fetch('list.json', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Could not read list.json (${response.status})`);
+        const files = await response.json();
+        if (!Array.isArray(files) || !files.length || files.some(name => !isValidPagePath(name))) {
+          throw new Error('list.json must contain an array of relative HTML paths, such as "page.html" or "news/index.html".');
+        }
+        window.pageFiles = [...new Set(files)];
+        remaining = shuffle([...window.pageFiles]);
+        appendNext();
+        appendNext();
+        scheduleSentinelReobserve();
+      } catch (error) {
+        message.textContent = `${error.message} Open this site through a local web server so the browser can fetch the JSON file.`;
+        status.textContent = 'Unable to load pages';
+      }
+    }
+
+    start();
+  </script>
+</body>
+</html>
