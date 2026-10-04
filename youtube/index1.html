@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f0f0f">
+    <title>YAN1 Video</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background: #0f0f0f;
+            color: #f5f5f5;
+            font-family: Arial, sans-serif;
+        }
+
+        header {
+            border-bottom: 1px solid #333;
+            padding: 18px 24px;
+            text-align: center;
+        }
+
+        header a {
+            color: inherit;
+            font-size: 20px;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        main {
+            width: min(100% - 32px, 900px);
+            margin: 0 auto;
+            padding: 32px 0 48px;
+        }
+
+        h1 {
+            margin: 0 0 18px;
+            font-size: 22px;
+            line-height: 1.4;
+            overflow-wrap: anywhere;
+        }
+
+        .video-frame {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            overflow: hidden;
+            background: #000;
+            border: 1px solid #292929;
+            border-radius: 8px;
+        }
+
+        .thumbnail-button {
+            position: relative;
+            display: block;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            overflow: hidden;
+            border: 0;
+            background: #000;
+            cursor: pointer;
+        }
+
+        .thumbnail-button img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .play-icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            display: grid;
+            width: 68px;
+            aspect-ratio: 1;
+            place-items: center;
+            padding-left: 5px;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: rgb(0 0 0 / 78%);
+            color: white;
+            font-size: 30px;
+            transition: background 160ms ease, scale 160ms ease;
+        }
+
+        .thumbnail-button:hover .play-icon,
+        .thumbnail-button:focus-visible .play-icon {
+            scale: 1.08;
+            background: #d71920;
+        }
+
+        iframe {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        .share-area {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            padding-top: 18px;
+        }
+
+        .share-message {
+            flex-basis: 100%;
+            margin: 0;
+            color: #aaa;
+            line-height: 1.6;
+            white-space: pre-line;
+        }
+
+        .share-button {
+            min-width: 48px;
+            min-height: 44px;
+            border: 1px solid #555;
+            border-radius: 6px;
+            background: #242424;
+            color: white;
+            font: inherit;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .share-button:hover,
+        .share-button:focus-visible {
+            background: #383838;
+        }
+
+        .share-link {
+            min-width: 0;
+            color: #9ac7ff;
+            font-size: 14px;
+            overflow-wrap: anywhere;
+        }
+
+        .message {
+            margin: 0;
+            color: #aaa;
+            line-height: 1.6;
+        }
+
+        .status {
+            min-height: 24px;
+            margin: 12px 0 0;
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        @media (max-width: 520px) {
+            header {
+                padding: 15px 16px;
+            }
+
+            main {
+                padding-top: 24px;
+            }
+
+            h1 {
+                font-size: 19px;
+            }
+
+            .play-icon {
+                width: 56px;
+                font-size: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="https://yan1website.github.io/YAN1.youtube/">YAN1 Videos</a>
+    </header>
+
+    <main>
+        <h1 id="video-title">Loading video...</h1>
+        <div class="video-frame" id="video-frame"></div>
+        <div class="share-area">
+            <button class="share-button" id="share-button" type="button" aria-label="Share this video" title="Share this video" hidden>ᯓ➤</button>
+            <p class="share-message" id="share-message" hidden></p>
+            <a class="share-link" id="share-link" hidden></a>
+        </div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+    </main>
+
+    <script>
+        function isYAN1App() {
+            return Boolean(
+                window.AndroidPython &&
+                typeof window.AndroidPython.executePython === "function"
+            );
+        }
+
+        function openInYAN1App() {
+            if (isYAN1App()) return;
+
+            try {
+                if (sessionStorage.getItem("yan1_launched") === "true") return;
+                sessionStorage.setItem("yan1_launched", "true");
+            } catch (error) {
+                console.warn("Unable to check YAN1 launch state:", error);
+            }
+
+            const currentURL = window.location.href;
+            const cleanPath = currentURL.replace(/^https?:\/\//, "");
+            const intentURL =
+                "intent://" + cleanPath + "#Intent;" +
+                "scheme=https;" +
+                "package=com.example1.yan1appgen1;" +
+                "S.browser_fallback_url=" + encodeURIComponent(currentURL) + ";" +
+                "end;";
+
+            window.location.href = intentURL;
+        }
+
+        setTimeout(openInYAN1App, 1200);
+
+        const PAGE_URL = "https://yan1website.github.io/YAN1.home/youtube/index1.html";
+        const videoFrame = document.getElementById("video-frame");
+        const videoTitle = document.getElementById("video-title");
+        const shareButton = document.getElementById("share-button");
+        const shareMessage = document.getElementById("share-message");
+        const shareLink = document.getElementById("share-link");
+        const status = document.getElementById("status");
+        const queryParameters = new URLSearchParams(window.location.search);
+        const sharedTitle = queryParameters.get("title");
+
+        function getVideoId(value) {
+            const candidate = value.trim();
+            let youtubeUrl;
+            try {
+                youtubeUrl = new URL(
+                    /^[a-z][a-z\d+.-]*:\/\//i.test(candidate)
+                        ? candidate
+                        : "https://" + candidate
+                );
+            } catch {
+                return "";
+            }
+            const hostname = youtubeUrl.hostname.toLowerCase();
+
+            if (hostname === "youtu.be") {
+                return youtubeUrl.pathname.split("/").filter(Boolean)[0] || "";
+            }
+
+            if (hostname !== "youtube.com" && hostname !== "www.youtube.com" && hostname !== "m.youtube.com") {
+                return "";
+            }
+
+            if (youtubeUrl.pathname === "/watch") {
+                return youtubeUrl.searchParams.get("v") || "";
+            }
+
+            const pathParts = youtubeUrl.pathname.split("/").filter(Boolean);
+            if (["embed", "shorts", "live"].includes(pathParts[0])) {
+                return pathParts[1] || "";
+            }
+
+            return "";
+        }
+
+        function makePermanentLink() {
+            const youtubePath = "www.youtube.com/watch?v=" + videoId;
+            return PAGE_URL + "?" + new URLSearchParams({
+                txt: youtubePath,
+                title: videoTitle.textContent
+            }).toString();
+        }
+
+        function showPlayer() {
+            const player = document.createElement("iframe");
+            player.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(videoId) + "?autoplay=1&rel=0";
+            player.title = "YouTube video player";
+            player.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+            player.allowFullscreen = true;
+            videoFrame.replaceChildren(player);
+        }
+
+        async function copyLink(link) {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(link);
+                return true;
+            }
+
+            const temporaryInput = document.createElement("textarea");
+            temporaryInput.value = link;
+            temporaryInput.setAttribute("readonly", "");
+            temporaryInput.style.position = "fixed";
+            temporaryInput.style.opacity = "0";
+            document.body.appendChild(temporaryInput);
+            temporaryInput.select();
+            const copied = document.execCommand("copy");
+            temporaryInput.remove();
+            return copied;
+        }
+
+        const queryText = queryParameters.get("txt");
+        const videoId = queryText ? getVideoId(queryText) : "";
+
+        if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+            videoTitle.textContent = "Video link not found";
+            videoFrame.hidden = true;
+            status.textContent = "Open a valid YAN1 video link to watch and share a video.";
+        } else {
+            const thumbnailButton = document.createElement("button");
+            const thumbnail = document.createElement("img");
+            const playIcon = document.createElement("span");
+
+            videoTitle.textContent = sharedTitle || "Watch this YouTube video";
+            thumbnailButton.type = "button";
+            thumbnailButton.className = "thumbnail-button";
+            thumbnailButton.setAttribute("aria-label", "Play YouTube video");
+            thumbnail.src = "https://i.ytimg.com/vi/" + encodeURIComponent(videoId) + "/hqdefault.jpg";
+            thumbnail.alt = "YouTube video thumbnail";
+            playIcon.className = "play-icon";
+            playIcon.setAttribute("aria-hidden", "true");
+            playIcon.textContent = "▶";
+            thumbnailButton.append(thumbnail, playIcon);
+            thumbnailButton.addEventListener("click", showPlayer);
+            videoFrame.appendChild(thumbnailButton);
+            shareButton.hidden = false;
+
+            shareButton.addEventListener("click", async function() {
+                const permanentLink = makePermanentLink();
+                const shareMessageText =
+                    "YAN1 APP GEN 1\n" +
+                    "YAN1 APP GEN 1\n" +
+                    "Found something interesting — have a look! ✨\n" +
+                    "🎬 " + videoTitle.textContent + "\n" +
+                    "THANKS 🙏";
+                const shareText = shareMessageText + "\n" + permanentLink;
+
+                shareLink.href = permanentLink;
+                shareLink.textContent = permanentLink;
+                shareLink.hidden = false;
+                shareMessage.textContent = shareMessageText;
+                shareMessage.hidden = false;
+                status.textContent = "";
+
+                try {
+                    if (navigator.share) {
+                        await navigator.share({
+                            text: shareMessageText,
+                            url: permanentLink
+                        });
+                    } else if (await copyLink(shareText)) {
+                        status.textContent = "Share message copied. You can now paste it into any app.";
+                    } else {
+                        status.textContent = "Your share link is ready above.";
+                    }
+                } catch (error) {
+                    if (error.name !== "AbortError") {
+                        try {
+                            const copied = await copyLink(shareText);
+                            status.textContent = copied
+                                ? "Share message copied. You can now paste it into any app."
+                                : "Your share link is ready above.";
+                        } catch {
+                            status.textContent = "Your share link is ready above.";
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
