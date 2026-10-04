@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>News</title>
+
+    <script>
+        function isYAN1App() {
+            return (window.AndroidPython && typeof window.AndroidPython.executePython === "function");
+        }
+
+        function openInYAN1App() {
+            if (isYAN1App()) return;
+            if (sessionStorage.getItem("yan1_launched") === "true") return;
+            sessionStorage.setItem("yan1_launched", "true");
+
+            const currentURL = window.location.href;
+            const cleanPath = currentURL.replace(/^https?:\/\//, "");
+            const intentURL =
+                "intent://" + cleanPath + "#Intent;" +
+                "scheme=https;" +
+                "package=com.example1.yan1appgen1;" +
+                "S.browser_fallback_url=" + encodeURIComponent(currentURL) + ";" +
+                "end;";
+
+            window.location.href = intentURL;
+        }
+
+        setTimeout(openInYAN1App, 1200);
+    </script>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f2f2f2;
+            color: #222;
+        }
+
+        header {
+            background: #4285f4;
+            color: white;
+            padding: 18px;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0;
+        }
+
+        #searchForm {
+            display: flex;
+            gap: 8px;
+            max-width: 900px;
+            margin: 15px auto 0;
+            padding: 0 15px;
+        }
+
+        #searchInput {
+            flex: 1;
+            min-width: 0;
+            padding: 11px 13px;
+            border: 1px solid #d0d0d0;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        #searchButton {
+            border: 0;
+            cursor: pointer;
+        }
+
+        #categories {
+            display: flex;
+            gap: 8px;
+            max-width: 900px;
+            margin: 14px auto 0;
+            padding: 0 15px 4px;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        .categoryButton {
+            flex: 0 0 auto;
+            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            border-radius: 5px;
+            background: transparent;
+            color: white;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .categoryButton:hover,
+        .categoryButton.active {
+            background: white;
+            color: #4285f4;
+        }
+
+        #status {
+            margin: 15px auto;
+            max-width: 900px;
+            padding: 12px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        #error {
+            display: none;
+            max-width: 900px;
+            margin: 15px auto;
+            padding: 15px;
+            background: #ffe5e5;
+            color: #b00000;
+            border: 1px solid #ffaaaa;
+            border-radius: 6px;
+            white-space: pre-wrap;
+        }
+
+        #articles {
+            width: 100%;
+            max-width: none;
+            margin: 20px 0;
+            padding: 0;
+        }
+
+        #resultsHeading {
+            max-width: 900px;
+            margin: 20px auto 0;
+            padding: 0 15px;
+            color: #555;
+            font-size: 18px;
+        }
+
+        .article {
+            background: white;
+            margin-bottom: 20px;
+            padding: 18px;
+            border-radius: 8px;
+            border-left: 0;
+            border-right: 0;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+
+        .article h2 {
+            margin-top: 0;
+            font-size: 21px;
+            line-height: 1.4;
+        }
+
+        .article h2 a {
+            color: #222;
+            text-decoration: none;
+        }
+
+        .article h2 a:hover {
+            text-decoration: underline;
+        }
+
+        .article-image {
+            display: block;
+            width: 100%;
+            max-height: 500px;
+            object-fit: contain;
+            background: #eee;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .description {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #444;
+            margin: 15px 0;
+        }
+
+        .meta {
+            color: #777;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 9px 14px;
+            background: #4285f4;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        .button:hover {
+            opacity: 0.85;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+        }
+
+        #rawOutput {
+            display: none;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 15px;
+            background: #111;
+            color: #00ff66;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            font-family: Consolas, monospace;
+        }
+
+        @media (max-width: 900px) {
+            #articles {
+                width: 100%;
+                max-width: none;
+                margin-left: 0;
+                margin-right: 0;
+                padding: 0;
+            }
+
+            .article {
+                width: 100%;
+                margin-left: 0;
+                margin-right: 0;
+                border-left: 0;
+                border-right: 0;
+                border-radius: 0;
+                box-shadow: none;
+            }
+        }
+
+        @media (max-width: 600px) {
+            body {
+                max-width: none;
+                margin: 0;
+                padding: 0;
+            }
+
+            #status,
+            #error,
+            #resultsHeading,
+            #articles,
+            #rawOutput {
+                width: 100%;
+                max-width: none;
+                border-left: 0;
+                border-right: 0;
+                border-radius: 0;
+            }
+
+            #status,
+            #error,
+            #resultsHeading {
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+
+            #status,
+            #error,
+            #resultsHeading,
+            #articles,
+            #rawOutput {
+                margin-left: 0;
+                margin-right: 0;
+            }
+
+            #articles {
+                padding: 0;
+            }
+
+            .article {
+                width: 100%;
+                margin: 0;
+                padding: 18px 16px;
+                border-radius: 0;
+                box-shadow: none;
+                border-bottom: 1px solid #ddd;
+                border-left: 0;
+                border-right: 0;
+            }
+
+            .article-image {
+                width: calc(100% + 32px);
+                max-width: none;
+                margin-left: -16px;
+                border-radius: 0;
+            }
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<header>
+
+    <h1>News</h1>
+
+    <form id="searchForm">
+        <input
+            id="searchInput"
+            type="search"
+            placeholder="Search the news..."
+            aria-label="Search the news"
+        >
+        <button
+            id="searchButton"
+            class="button"
+            type="submit"
+        >Search</button>
+    </form>
+
+    <nav id="categories" aria-label="News categories"></nav>
+
+</header>
+
+
+<div id="status">
+    Connecting to local app...
+</div>
+
+
+<div id="error"></div>
+
+
+<div id="resultsHeading"></div>
+
+
+<div id="articles">
+
+    <div class="loading">
+        Waiting for news...
+    </div>
+
+</div>
+
+
+<pre id="rawOutput"></pre>
+
+
+<script>
+
+
+// ============================================================
+// CONNECT TO THE ANDROID APP'S PYTHON ENGINE
+// ============================================================
+
+async function initializePythonEngine() {
+
+    setStatus(
+        "Connecting to app. Loading python.py..."
+    );
+
+
+    try {
+
+        // ----------------------------------------------------
+        // LOAD python.py
+        // ----------------------------------------------------
+
+        const response = await fetch(
+            "python.py"
+        );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Could not load python.py.\n" +
+                "HTTP status: " +
+                response.status
+            );
+
+        }
+
+
+        const pythonCode =
+            await response.text();
+
+
+        if (!pythonCode.trim()) {
+
+            throw new Error(
+                "python.py is empty."
+            );
+
+        }
+
+
+        console.log(
+            "python.py loaded successfully."
+        );
+
+
+        // ----------------------------------------------------
+        // Store the template and execute the first request automatically.
+        // ----------------------------------------------------
+
+        window.pythonTemplate = pythonCode;
+
+        sendDataToApp(
+            createSearchCode("", ""),
+            ""
+        );
+
+    }
+
+    catch (error) {
+
+        showError(error.message);
+
+    }
+
+}
+
+
+initializePythonEngine();
+
+
+// ============================================================
+// SEND DATA TO APP
+// ============================================================
+
+function sendDataToApp(
+    pythonCode,
+    query
+) {
+
+    runPythonOnDevice(
+        pythonCode,
+        function(output) {
+            setStatus("Python execution completed.");
+            displayResult(output);
+        },
+        function(errorLog) {
+            showError(errorLog);
+        }
+    );
+
+    setStatus("Python code sent. Waiting for result...");
+
+}
+
+
+/**
+ * Executes Python code inside the YAN1 Android App runtime environment.
+ * @param {string} pythonCode Python script text to execute.
+ * @param {function} onSuccess Callback invoked with stdout.
+ * @param {function} onError Optional callback invoked with error logs.
+ */
+function runPythonOnDevice(pythonCode, onSuccess, onError) {
+
+    if (!window.AndroidPython ||
+        typeof window.AndroidPython.executePython !== "function") {
+        const fallbackMsg =
+            "Execution failed: Not running inside the YAN1 APP environment.";
+
+        console.error(fallbackMsg);
+
+        if (onError) {
+            onError(fallbackMsg);
+        }
+
+        return;
+    }
+
+    const requestId =
+        "py_req_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+
+    window[requestId + "_success"] = function(output) {
+        if (onSuccess) {
+            onSuccess(output);
+        }
+
+        cleanupTrackers(requestId);
+    };
+
+    window[requestId + "_error"] = function(errorLog) {
+        if (onError) {
+            onError(errorLog);
+        }
+
+        cleanupTrackers(requestId);
+    };
+
+    try {
+        window.AndroidPython.executePython(pythonCode, requestId);
+    } catch (error) {
+        window[requestId + "_error"](error.message || String(error));
+    }
+}
+
+
+function cleanupTrackers(id) {
+    delete window[id + "_success"];
+    delete window[id + "_error"];
+}
+
+
+window.onPythonResult = function(output, callbackId) {
+    const specificSuccessHandler =
+        window[callbackId + "_success"];
+
+    if (specificSuccessHandler) {
+        specificSuccessHandler(output);
+    } else {
+        console.log("Global Catch - Python Output:\n", output);
+    }
+};
+
+
+window.onPythonError = function(errorMessage, callbackId) {
+    const specificErrorHandler =
+        window[callbackId + "_error"];
+
+    if (specificErrorHandler) {
+        specificErrorHandler(errorMessage);
+    } else {
+        console.error("Global Catch - Python Error:\n", errorMessage);
+    }
+};
+
+
+function createSearchCode(
+    query,
+    feedUrl
+) {
+
+    const safeQuery =
+        JSON.stringify(
+            query.trim()
+        );
+
+
+    return window.pythonTemplate
+        .replace(
+            'SEARCH_QUERY = ""',
+            "SEARCH_QUERY = " + safeQuery
+        )
+        .replace(
+            'SELECTED_FEED_URL = ""',
+            "SELECTED_FEED_URL = " +
+            JSON.stringify(feedUrl)
+        );
+
+}
+
+
+function loadNews(
+    heading,
+    query,
+    feedUrl
+) {
+
+    document.getElementById(
+        "error"
+    ).style.display = "none";
+
+    document.getElementById(
+        "resultsHeading"
+    ).textContent = heading;
+
+    document.getElementById(
+        "articles"
+    ).innerHTML =
+        '<div class="loading">Loading news...</div>';
+
+    sendDataToApp(
+        createSearchCode(query, feedUrl),
+        query || heading
+    );
+
+}
+
+
+const categories = [
+    ["Latest", "https://news.google.com/rss"],
+    ["Technology", "https://news.google.com/rss/search?q=technology"],
+    ["AI", "https://news.google.com/rss/search?q=artificial+intelligence"],
+    ["Health", "https://news.google.com/rss/search?q=health"],
+    ["Sports", "https://news.google.com/rss/search?q=sports"],
+    ["Cricket", "https://news.google.com/rss/search?q=cricket"],
+    ["Football", "https://news.google.com/rss/search?q=football"],
+    ["India", "https://news.google.com/rss/search?q=India"],
+    ["World", "https://news.google.com/rss/search?q=world+news"],
+    ["Business", "https://news.google.com/rss/search?q=business"],
+    ["Markets", "https://news.google.com/rss/search?q=stock+market"],
+    ["Economy", "https://news.google.com/rss/search?q=economy"],
+    ["Gaming", "https://news.google.com/rss/search?q=gaming"],
+    ["Science", "https://news.google.com/rss/search?q=science"],
+    ["Space", "https://news.google.com/rss/search?q=space"],
+    ["Movies", "https://news.google.com/rss/search?q=movies"],
+    ["Entertainment", "https://news.google.com/rss/search?q=entertainment"],
+    ["Music", "https://news.google.com/rss/search?q=music"],
+    ["Gadgets", "https://news.google.com/rss/search?q=gadgets"],
+    ["Cybersecurity", "https://news.google.com/rss/search?q=cybersecurity"],
+    ["Programming", "https://news.google.com/rss/search?q=programming"],
+    ["Web Development", "https://news.google.com/rss/search?q=web+development"],
+    ["Crypto", "https://news.google.com/rss/search?q=cryptocurrency"],
+    ["Politics", "https://news.google.com/rss/search?q=politics"],
+    ["Education", "https://news.google.com/rss/search?q=education"],
+    ["Autos", "https://news.google.com/rss/search?q=automobiles"],
+    ["Travel", "https://news.google.com/rss/search?q=travel"],
+    ["Food", "https://news.google.com/rss/search?q=food"],
+    ["Lifestyle", "https://news.google.com/rss/search?q=lifestyle"],
+    ["Environment", "https://news.google.com/rss/search?q=environment"],
+    ["Weather", "https://news.google.com/rss/search?q=weather"],
+    ["Jobs", "https://news.google.com/rss/search?q=jobs+careers"],
+    ["Television", "https://news.google.com/rss/search?q=television"]
+];
+
+
+const categoryContainer =
+    document.getElementById("categories");
+
+
+categories.forEach(
+    function(category, index) {
+
+        const button =
+            document.createElement("button");
+
+        button.className = "categoryButton";
+        button.type = "button";
+        button.textContent = category[0];
+
+        button.addEventListener(
+            "click",
+            function() {
+
+                if (!window.pythonTemplate) {
+                    showError("The news engine is still connecting. Please try again.");
+                    return;
+                }
+
+                document.querySelectorAll(".categoryButton").forEach(
+                    function(categoryButton) {
+                        categoryButton.classList.remove("active");
+                    }
+                );
+
+                button.classList.add("active");
+                document.getElementById("searchInput").value = "";
+                loadNews(
+                    category[0] === "Latest"
+                        ? "Latest news"
+                        : category[0] + " news",
+                    "",
+                    category[1]
+                );
+
+            }
+        );
+
+        if (index === 0) {
+            button.classList.add("active");
+        }
+
+        categoryContainer.appendChild(button);
+
+    }
+);
+
+
+document.getElementById(
+    "searchForm"
+).addEventListener(
+    "submit",
+    function(event) {
+
+        event.preventDefault();
+
+        const query =
+            document.getElementById(
+                "searchInput"
+            ).value.trim();
+
+        if (!window.pythonTemplate) {
+
+            showError(
+                "The news engine is still connecting. Please try again."
+            );
+
+            return;
+
+        }
+
+        document.querySelectorAll(".categoryButton").forEach(
+            function(categoryButton) {
+                categoryButton.classList.remove("active");
+            }
+        );
+
+        loadNews(
+            query
+                ? "Search results for: " + query
+                : "Latest news",
+            query,
+            query ? "" : "https://news.google.com/rss"
+        );
+
+    }
+);
+
+
+// ============================================================
+// DISPLAY PYTHON RESULT
+// ============================================================
+
+function displayResult(
+    output
+) {
+
+    let data;
+
+
+    // --------------------------------------------------------
+    // PARSE PYTHON JSON
+    // --------------------------------------------------------
+
+    try {
+
+        data = JSON.parse(
+            output
+        );
+
+    }
+
+    catch (error) {
+
+        document.getElementById(
+            "rawOutput"
+        ).style.display = "block";
+
+
+        document.getElementById(
+            "rawOutput"
+        ).textContent =
+            output;
+
+
+        showError(
+            "Python returned text, not valid JSON."
+        );
+
+
+        return;
+
+    }
+
+
+    // --------------------------------------------------------
+    // PYTHON ERROR
+    // --------------------------------------------------------
+
+    if (
+        data.success === false
+    ) {
+
+        showError(
+            JSON.stringify(
+                data,
+                null,
+                2
+            )
+        );
+
+
+        return;
+
+    }
+
+
+    // --------------------------------------------------------
+    // GET ARTICLES
+    // --------------------------------------------------------
+
+    const articles =
+        Array.isArray(
+            data.articles
+        )
+            ? data.articles
+            : Array.isArray(
+                data.posts
+            )
+                ? data.posts
+                : [];
+
+
+    const container =
+        document.getElementById(
+            "articles"
+        );
+
+    const searchInput =
+        document.getElementById(
+            "searchInput"
+        );
+
+    if (searchInput.value.trim()) {
+
+        document.getElementById(
+            "resultsHeading"
+        ).textContent =
+            "Search results for: " +
+            searchInput.value.trim();
+
+    }
+
+
+    container.innerHTML = "";
+
+
+    // --------------------------------------------------------
+    // NO ARTICLES
+    // --------------------------------------------------------
+
+    if (
+        articles.length === 0
+    ) {
+
+        container.innerHTML =
+            '<div class="loading">' +
+            'No articles found.' +
+            '</div>';
+
+
+        setStatus(
+            "No articles received."
+        );
+
+
+        return;
+
+    }
+
+
+    // --------------------------------------------------------
+    // DISPLAY ARTICLES
+    // --------------------------------------------------------
+
+    articles.forEach(
+        function(article) {
+
+
+            const box =
+                document.createElement(
+                    "article"
+                );
+
+
+            box.className =
+                "article";
+
+
+            // =================================================
+            // TITLE
+            // =================================================
+
+            const title =
+                document.createElement(
+                    "h2"
+                );
+
+
+            const titleLink =
+                document.createElement(
+                    "a"
+                );
+
+
+            titleLink.textContent =
+                article.title ||
+                "Untitled";
+
+
+            titleLink.href =
+                article.url ||
+                "#";
+
+
+            titleLink.target =
+                "_blank";
+
+
+            titleLink.rel =
+                "noopener noreferrer";
+
+
+            title.appendChild(
+                titleLink
+            );
+
+
+            box.appendChild(
+                title
+            );
+
+
+            // =================================================
+            // IMAGE
+            // =================================================
+
+            if (
+                typeof article.image_url === "string" &&
+                article.image_url.trim() !== ""
+            ) {
+
+                const image =
+                    document.createElement(
+                        "img"
+                    );
+
+
+                image.className =
+                    "article-image";
+
+
+                image.src =
+                    article.image_url;
+
+
+                image.alt =
+                    article.title ||
+                    "News image";
+
+
+                image.loading =
+                    "lazy";
+
+
+                image.referrerPolicy =
+                    "no-referrer";
+
+
+                image.onerror =
+                    function() {
+
+                        image.remove();
+
+                    };
+
+
+                box.appendChild(
+                    image
+                );
+
+            }
+
+
+            // =================================================
+            // DESCRIPTION
+            // =================================================
+
+            if (
+                article.description &&
+                article.description.trim() !== ""
+            ) {
+
+                const description =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                description.className =
+                    "description";
+
+
+                description.textContent =
+                    article.description;
+
+
+                box.appendChild(
+                    description
+                );
+
+            }
+
+
+            // =================================================
+            // META
+            // =================================================
+
+            const meta =
+                document.createElement(
+                    "div"
+                );
+
+
+            meta.className =
+                "meta";
+
+
+            let metaText = "";
+
+
+            if (
+                article.source
+            ) {
+
+                metaText +=
+                    "Source: " +
+                    article.source;
+
+            }
+
+
+            if (
+                article.author
+            ) {
+
+                if (metaText) {
+                    metaText += " • ";
+                }
+
+
+                metaText +=
+                    "Author: " +
+                    article.author;
+
+            }
+
+
+            if (
+                article.published
+            ) {
+
+                if (metaText) {
+                    metaText += " • ";
+                }
+
+
+                metaText +=
+                    "Published: " +
+                    article.published;
+
+            }
+
+
+            meta.textContent =
+                metaText;
+
+
+            box.appendChild(
+                meta
+            );
+
+
+            // =================================================
+            // OPEN ARTICLE BUTTON
+            // =================================================
+
+            if (
+                article.url
+            ) {
+
+                const button =
+                    document.createElement(
+                        "a"
+                    );
+
+
+                button.className =
+                    "button";
+
+
+                button.href =
+                    article.url;
+
+
+                button.target =
+                    "_blank";
+
+
+                button.rel =
+                    "noopener noreferrer";
+
+
+                button.textContent =
+                    "Read Full Article";
+
+
+                box.appendChild(
+                    button
+                );
+
+            }
+
+
+            // =================================================
+            // ADD ARTICLE TO PAGE
+            // =================================================
+
+            container.appendChild(
+                box
+            );
+
+        }
+    );
+
+
+    // --------------------------------------------------------
+    // UPDATE STATUS
+    // --------------------------------------------------------
+
+    setStatus(
+        "Received " +
+        articles.length +
+        " articles."
+    );
+
+}
+
+
+// ============================================================
+// SET STATUS
+// ============================================================
+
+function setStatus(
+    message
+) {
+
+    document.getElementById(
+        "status"
+    ).textContent =
+        message;
+
+}
+
+
+// ============================================================
+// SHOW ERROR
+// ============================================================
+
+function showError(
+    message
+) {
+
+    const errorBox =
+        document.getElementById(
+            "error"
+        );
+
+
+    errorBox.style.display =
+        "block";
+
+
+    errorBox.textContent =
+        message;
+
+
+    setStatus(
+        "Error"
+    );
+
+}
+
+
+</script>
+
+
+</body>
+
+</html>
