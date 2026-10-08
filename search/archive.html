@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>YAN1 Internet Archive Viewer</title>
+
+
+<style>
+
+*,
+*::before,
+*::after{
+    box-sizing:border-box;
+}
+
+body{
+
+    margin:0;
+    font-family:Arial;
+    background:#f4f4f4;
+
+}
+
+.header{
+
+    padding:20px;
+    background:#222;
+    color:white;
+    text-align:center;
+
+}
+
+
+iframe{
+
+    display:block;
+    width:100%;
+    height:min(800px, calc(100vh - 100px));
+    min-height:320px;
+    border:none;
+
+}
+
+
+</style>
+
+
+</head>
+
+
+<body>
+
+
+
+<div class="header">
+
+<h1>
+YAN1 Internet Archive Viewer
+</h1>
+
+</div>
+
+
+
+
+<iframe
+
+id="archiveFrame"
+
+src="https://archive.org/search?query=biology&tab=all">
+
+</iframe>
+
+
+
+
+
+
+
+<script>
+
+
+
+function searchArchive(query){
+
+
+    if(!query || query.trim()==""){
+
+        return;
+
+    }
+
+
+
+
+
+    let url =
+
+    "https://archive.org/search?query="
+
+    + encodeURIComponent(query)
+
+    + "&tab=all";
+
+
+
+
+
+    document
+
+    .getElementById("archiveFrame")
+
+    .src = url;
+
+
+
+}
+
+
+
+
+
+
+
+
+// Receive text from index2.html
+
+window.addEventListener(
+
+"message",
+
+function(event){
+
+
+
+    let text = event.data;
+
+
+
+
+    if(typeof text === "string" && text.trim() !== ""){
+
+
+        searchArchive(text);
+
+
+
+    }
+
+
+
+});
+
+
+</script>
+
+<script>
+<script src="yan1-app.js"></script>
+
+
+
+
+</body>
+
+</html>

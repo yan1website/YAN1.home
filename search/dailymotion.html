@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Dailymotion Search</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+<style>
+
+*,
+*::before,
+*::after{
+    box-sizing:border-box;
+}
+
+body{
+    font-family:Arial;
+    background:#f5f5f5;
+    margin:0;
+}
+
+
+.container{
+    max-width:900px;
+    width:100%;
+    margin:auto;
+    padding:20px;
+}
+
+
+.result{
+
+    background:white;
+    margin-top:20px;
+    padding:20px;
+    border-radius:12px;
+
+}
+
+
+
+.video-box{
+
+    position:relative;
+    width:100%;
+    height:400px;
+    background:#ddd;
+    border-radius:10px;
+    overflow:hidden;
+
+}
+
+
+
+.video-box img{
+
+    width:100%;
+    height:100%;
+    object-fit:cover;
+
+}
+
+
+
+.play{
+
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    background:white;
+    padding:15px 25px;
+    border-radius:50%;
+    font-size:25px;
+
+}
+
+
+iframe{
+
+    display:block;
+    width:100%;
+    height:min(400px, 56.25vw);
+    min-height:220px;
+    border:0;
+
+}
+
+
+.loading{
+
+    text-align:center;
+    margin:20px;
+    font-size:18px;
+
+}
+
+@media (max-width:600px){
+    .container{
+        padding:12px;
+    }
+
+    .video-box{
+        height:min(400px, 56.25vw);
+        min-height:220px;
+    }
+}
+
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div class="container">
+
+
+<h2>Dailymotion Search</h2>
+
+
+<div id="results"></div>
+
+
+<div id="loading"></div>
+
+
+</div>
+
+
+
+
+
+<script>
+
+let searchText="";
+
+let page=1;
+
+let loading=false;
+
+let finished=false;
+
+
+let loadedIds=new Set();
+
+
+
+
+
+
+// Lazy load player
+
+let playerObserver=new IntersectionObserver(entries=>{
+
+
+entries.forEach(entry=>{
+
+
+if(entry.isIntersecting){
+
+
+let box=entry.target;
+
+let id=box.dataset.id;
+
+
+
+box.innerHTML=
+
+`
+
+<iframe
+
+src="https://www.dailymotion.com/embed/video/${id}"
+
+allowfullscreen>
+
+</iframe>
+
+`;
+
+
+
+playerObserver.unobserve(box);
+
+
+}
+
+
+});
+
+
+},
+{
+rootMargin:"400px"
+});
+
+
+
+
+
+
+
+
+
+function startSearch(text){
+
+
+searchText=text.trim();
+
+
+
+if(!searchText){
+
+return;
+
+}
+
+
+
+page=1;
+
+finished=false;
+
+loading=false;
+
+loadedIds.clear();
+
+
+
+document
+.getElementById("results")
+.innerHTML="";
+
+
+loadVideos();
+
+
+}
+
+
+
+
+
+
+
+
+
+async function loadVideos(){
+
+
+if(loading || finished){
+
+return;
+
+}
+
+
+
+loading=true;
+
+
+document
+.getElementById("loading")
+.innerHTML="Loading...";
+
+
+
+
+
+let cacheKey=
+
+"dailymotion_"+searchText+"_"+page;
+
+
+
+let data;
+
+
+
+let saved=
+
+localStorage.getItem(cacheKey);
+
+
+
+if(saved){
+
+
+data=JSON.parse(saved);
+
+
+}
+
+else{
+
+
+let url=
+
+"https://api.dailymotion.com/videos"+
+
+"?fields=id,title,description,thumbnail_url"+
+
+"&limit=10"+
+
+"&page="+page+
+
+"&sort=relevance"+
+
+"&search="+
+
+encodeURIComponent(searchText);
+
+
+
+
+try{
+
+
+let response=
+
+await fetch(url);
+
+
+
+data=
+
+await response.json();
+
+
+
+localStorage.setItem(
+
+cacheKey,
+
+JSON.stringify(data)
+
+);
+
+
+
+}
+
+catch(e){
+
+console.log(e);
+
+loading=false;
+
+return;
+
+}
+
+
+}
+
+
+
+
+
+appendVideos(data);
+
+
+
+if(!data.has_more){
+
+finished=true;
+
+}
+
+
+
+page++;
+
+
+loading=false;
+
+
+document
+.getElementById("loading")
+.innerHTML="";
+
+
+}
+
+
+
+
+
+
+
+
+
+function appendVideos(data){
+
+
+
+let html="";
+
+
+
+data.list.forEach(video=>{
+
+
+if(!loadedIds.has(video.id)){
+
+
+
+loadedIds.add(video.id);
+
+
+
+html+=
+
+
+`
+
+<div class="result">
+
+
+<h3>
+
+${video.title}
+
+</h3>
+
+
+
+<div class="video-box"
+
+data-id="${video.id}">
+
+
+<img src="${video.thumbnail_url}">
+
+
+<div class="play">
+
+▶
+
+</div>
+
+
+</div>
+
+
+
+<p>
+
+${video.description || "No description"}
+
+</p>
+
+
+</div>
+
+
+`;
+
+
+
+}
+
+
+});
+
+
+
+
+
+
+document
+.getElementById("results")
+.insertAdjacentHTML(
+
+"beforeend",
+
+html
+
+);
+
+
+
+
+
+document
+.querySelectorAll(".video-box")
+.forEach(box=>{
+
+
+playerObserver.observe(box);
+
+
+});
+
+
+}
+
+
+
+
+
+
+
+
+
+// Infinite scroll
+
+window.addEventListener(
+
+"scroll",
+
+()=>{
+
+
+if(
+
+window.innerHeight +
+
+window.scrollY >=
+
+document.body.offsetHeight - 500
+
+){
+
+
+loadVideos();
+
+
+}
+
+
+});
+
+
+
+
+
+
+
+// Receive search text from index2.html
+
+window.addEventListener(
+
+"message",
+
+function(event){
+
+
+
+let text=event.data;
+
+
+
+if(
+
+typeof text==="string"
+
+&&
+
+text.trim()!==""
+
+){
+
+
+
+startSearch(text);
+
+
+
+}
+
+
+
+});
+
+
+</script>
+<script src="yan1-app.js"></script>
+
+
+</body>
+
+</html>
