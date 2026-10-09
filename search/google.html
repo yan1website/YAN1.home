@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>My Google Search</title>
+
+
+<style>
+
+*,
+*::before,
+*::after{
+    box-sizing:border-box;
+}
+
+body{
+    margin:0;
+    font-family:Arial, sans-serif;
+    background:#f5f5f5;
+}
+
+
+.header{
+    background:#222;
+    color:white;
+    padding:25px;
+    text-align:center;
+    font-size:28px;
+}
+
+
+.container{
+
+    width:100%;
+    max-width:1000px;
+    margin:40px auto;
+    padding:25px;
+    background:white;
+    padding:25px;
+    border-radius:15px;
+    box-shadow:0 5px 20px rgba(0,0,0,0.15);
+
+}
+
+@media (max-width:600px){
+    .header{
+        padding:18px 12px;
+        font-size:22px;
+    }
+
+    .container{
+        margin:16px auto;
+        padding:16px;
+        border-radius:0;
+    }
+}
+
+
+</style>
+
+
+
+<!-- Google Programmable Search Engine -->
+
+<script async src="https://cse.google.com/cse.js?cx=a67979cde4f5446d1"></script>
+
+
+</head>
+
+
+<body>
+
+
+<div class="header">
+
+My Google Search
+
+</div>
+
+
+
+<div class="container">
+
+
+<div class="gcse-search"></div>
+
+
+</div>
+
+
+
+
+
+<script>
+
+// Receive search text from index2.html
+
+window.addEventListener(
+"message",
+function(event){
+
+
+    let text = event.data;
+
+
+    if(
+        typeof text === "string" &&
+        text.trim() !== ""
+    ){
+
+
+
+        // Wait until Google search element loads
+
+        let interval = setInterval(function(){
+
+
+            let input = 
+            document.querySelector(
+            "input.gsc-input"
+            );
+
+
+            let button =
+            document.querySelector(
+            "button.gsc-search-button"
+            );
+
+
+            if(input && button){
+
+
+                clearInterval(interval);
+
+
+
+                // Put received text
+
+                input.value = text;
+
+
+
+                // Automatically search
+
+                button.click();
+
+
+
+            }
+
+
+
+        },500);
+
+
+
+    }
+
+
+});
+
+
+
+</script>
+
+<script>
+<script src="yan1-app.js"></script>
+
+
+</body>
+
+</html>

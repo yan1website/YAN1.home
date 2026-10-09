@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Wikipedia Viewer</title>
+
+
+<style>
+
+*,
+*::before,
+*::after{
+    box-sizing:border-box;
+}
+
+body{
+    margin:0;
+    font-family:Arial;
+    background:#f4f4f4;
+}
+
+header{
+
+    background:#1565c0;
+    color:white;
+    padding:15px;
+    text-align:center;
+
+}
+
+
+.summary-option{
+
+    background:white;
+    padding:15px;
+
+}
+
+
+#summaryButton{
+
+    background:#1565c0;
+    color:white;
+    padding:10px 20px;
+    border:none;
+    cursor:pointer;
+    border-radius:4px;
+
+}
+
+
+#summaryButton:hover{
+
+    background:#0d47a1;
+
+}
+
+
+#status{
+
+    padding:10px;
+    color:red;
+
+}
+
+
+
+#summary{
+
+    display:none;
+    background:white;
+    margin:10px 15px;
+    padding:20px;
+    line-height:1.7;
+    border-radius:5px;
+
+}
+
+
+#summary h2{
+
+    color:#1565c0;
+
+}
+
+
+
+iframe{
+
+    display:block;
+    width:100%;
+    height:calc(100vh - 150px);
+    min-height:320px;
+    border:none;
+
+}
+
+@media (max-width:600px){
+    header{
+        padding:12px;
+    }
+
+    header h2{
+        margin:8px 0;
+        font-size:20px;
+    }
+
+    #summary{
+        margin:10px 8px;
+        padding:16px;
+    }
+
+    iframe{
+        height:calc(100vh - 130px);
+    }
+}
+
+
+</style>
+
+
+</head>
+
+
+
+<body>
+
+
+
+<header>
+
+<h2>Wikipedia Viewer</h2>
+
+</header>
+
+
+
+
+
+<div class="summary-option">
+
+<button
+id="summaryButton"
+onclick="getSummary()">
+
+Summary
+
+</button>
+
+</div>
+
+
+
+
+
+<div id="status"></div>
+
+
+
+<div id="summary"></div>
+
+
+
+
+<iframe id="viewer"></iframe>
+
+
+
+
+
+
+
+<script>
+
+
+
+let currentTitle = "";
+
+let receivedQuery = "";
+
+
+
+
+
+
+
+// ==========================================
+// RECEIVE TEXT FROM INDEX2.HTML
+// ==========================================
+
+
+window.addEventListener(
+
+"message",
+
+function(event){
+
+
+
+    let text = event.data;
+
+
+
+    if(
+        typeof text === "string" &&
+        text.trim() !== ""
+    ){
+
+
+        receivedQuery = text.trim();
+
+
+
+        searchWikipedia(receivedQuery);
+
+
+    }
+
+
+
+});
+
+
+
+
+
+
+
+
+// ==========================================
+// NORMAL SEARCH
+// ==========================================
+
+
+async function searchWikipedia(query){
+
+
+    if(!query){
+
+        return;
+
+    }
+
+
+
+    const status =
+        document.getElementById("status");
+
+
+    const summary =
+        document.getElementById("summary");
+
+
+    const viewer =
+        document.getElementById("viewer");
+
+
+
+    status.textContent =
+        "Searching...";
+
+
+
+    summary.style.display =
+        "none";
+
+
+
+    viewer.style.display =
+        "block";
+
+
+
+
+
+    const url =
+
+    `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*`;
+
+
+
+
+
+    try{
+
+
+        const response =
+            await fetch(url);
+
+
+
+        const data =
+            await response.json();
+
+
+
+
+        if(
+            !data.query ||
+            !data.query.search ||
+            data.query.search.length===0
+        ){
+
+
+            status.textContent =
+            "No results found.";
+
+
+            currentTitle="";
+
+            viewer.src="";
+
+
+            return;
+
+
+        }
+
+
+
+
+
+        currentTitle =
+        data.query.search[0].title;
+
+
+
+
+        const pageURL =
+
+        `https://en.wikipedia.org/wiki/${encodeURIComponent(currentTitle.replace(/ /g,"_"))}`;
+
+
+
+
+
+        status.textContent =
+        "Loading: "+currentTitle;
+
+
+
+        viewer.src =
+        pageURL;
+
+
+
+    }
+
+    catch(error){
+
+
+        console.error(error);
+
+
+        status.textContent =
+        "Something went wrong.";
+
+
+    }
+
+
+
+}
+
+
+
+
+
+
+
+
+
+// ==========================================
+// SUMMARY
+// ==========================================
+
+
+async function getSummary(){
+
+
+
+    const query = receivedQuery;
+
+
+
+    if(!query){
+
+
+        document.getElementById("status").textContent =
+
+        "No search received.";
+
+
+        return;
+
+
+    }
+
+
+
+
+
+    const status =
+    document.getElementById("status");
+
+
+
+    const summaryBox =
+    document.getElementById("summary");
+
+
+
+    const viewer =
+    document.getElementById("viewer");
+
+
+
+
+
+    status.textContent =
+    "Searching for summary...";
+
+
+
+
+
+    try{
+
+
+
+        const searchURL =
+
+        `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*`;
+
+
+
+
+        const searchResponse =
+        await fetch(searchURL);
+
+
+
+
+        const searchData =
+        await searchResponse.json();
+
+
+
+
+        if(
+            !searchData.query ||
+            !searchData.query.search ||
+            searchData.query.search.length===0
+        ){
+
+
+            status.textContent =
+            "No results found.";
+
+            return;
+
+
+        }
+
+
+
+
+
+        currentTitle =
+        searchData.query.search[0].title;
+
+
+
+
+
+
+        const summaryURL =
+
+        `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=true&explaintext=true&titles=${encodeURIComponent(currentTitle)}&format=json&origin=*`;
+
+
+
+
+
+
+        const response =
+        await fetch(summaryURL);
+
+
+
+
+        const data =
+        await response.json();
+
+
+
+
+        const pages =
+        data.query.pages;
+
+
+
+
+        const page =
+        Object.values(pages)[0];
+
+
+
+
+        const extract =
+        page.extract;
+
+
+
+
+
+        if(!extract){
+
+
+            status.textContent =
+            "No summary available.";
+
+
+            return;
+
+
+        }
+
+
+
+
+
+        viewer.style.display =
+        "none";
+
+
+
+        summaryBox.style.display =
+        "block";
+
+
+
+        summaryBox.innerHTML =
+
+        `
+
+        <h2>${escapeHTML(currentTitle)}</h2>
+
+        <p>${escapeHTML(extract)}</p>
+
+        `;
+
+
+
+
+        status.textContent =
+        "Summary loaded.";
+
+
+
+    }
+
+    catch(error){
+
+
+        console.error(error);
+
+
+        status.textContent =
+        "Unable to get summary.";
+
+
+    }
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+function escapeHTML(text){
+
+
+    const div =
+    document.createElement("div");
+
+    div.textContent=text;
+
+
+    return div.innerHTML;
+}
+
+    </script>
+
+    <script src="yan1-app.js"></script>
+
+
+
+
+</body>
+
+</html>

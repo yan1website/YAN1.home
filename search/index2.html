@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search Website</title>
+
+<style>
+
+*,
+*::before,
+*::after{
+    box-sizing:border-box;
+}
+
+body{
+    font-family:Arial;
+    background:#f5f5f5;
+    margin:0;
+}
+
+.container{
+    width:100%;
+    max-width:none;
+    margin:0;
+}
+
+
+.search-box{
+
+    background:white;
+    padding:20px;
+    border-radius:12px;
+
+}
+
+
+input{
+
+    padding:12px;
+    font-size:16px;
+    border:1px solid #ccc;
+    border-radius:8px;
+
+}
+
+
+#searchText{
+
+    width:80%;
+    max-width:100%;
+
+}
+
+ #shareLinkButton{
+    position:fixed;
+    top:16px;
+    right:16px;
+    z-index:1000;
+    width:48px;
+    height:48px;
+    padding:0;
+    border-radius:50%;
+    font-size:22px;
+}
+
+
+
+button{
+
+    padding:12px 20px;
+    background:#ff0050;
+    color:white;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+
+}
+
+
+
+.options{
+
+    margin-top:20px;
+    background:white;
+    padding:15px;
+    border-radius:12px;
+
+    display:flex;
+    align-items:center;
+    gap:25px;
+
+}
+
+
+
+.option{
+
+    display:flex;
+    align-items:center;
+    gap:5px;
+    cursor:pointer;
+    font-size:17px;
+
+}
+
+
+
+iframe{
+
+    display:block;
+    width:100%;
+    height:100vh;
+    min-height:400px;
+    border:none;
+    margin-top:20px;
+    border-radius:0;
+
+}
+
+@media (max-width:600px){
+    .search-box{
+        padding:16px;
+        border-radius:0;
+    }
+
+    #searchText{
+        width:100%;
+        margin-bottom:10px;
+    }
+
+    .options{
+        flex-wrap:wrap;
+        justify-content:flex-start;
+        gap:12px 18px;
+        margin-top:12px;
+        padding:12px;
+        border-radius:0;
+    }
+
+    .option{
+        font-size:16px;
+    }
+
+}
+
+
+</style>
+
+
+</head>
+
+
+<body>
+
+<button id="shareLinkButton" type="button" title="Copy share link" aria-label="Copy share link">ᯓ➤</button>
+
+
+
+<div class="container">
+
+
+
+<div class="search-box">
+
+
+<h2>Search</h2>
+
+
+<input
+
+id="searchText"
+
+placeholder="Enter search text..."
+
+>
+
+
+<button onclick="sendSearch()">
+
+Search
+
+</button>
+
+
+
+</div>
+
+
+
+
+
+
+
+<div class="options">
+
+
+<label class="option">
+
+<input
+
+type="radio"
+
+name="searchType"
+
+value="google"
+
+>
+
+Google
+
+</label>
+
+
+
+
+
+<label class="option">
+
+
+<input
+
+type="radio"
+
+name="searchType"
+
+value="archive"
+
+checked
+
+>
+
+Archive
+
+
+</label>
+
+
+
+
+
+
+<label class="option">
+
+
+<input
+
+type="radio"
+
+name="searchType"
+
+value="wikipedia"
+
+>
+
+Wikipedia
+
+
+</label>
+
+
+
+
+
+
+<label class="option">
+
+
+<input
+
+type="radio"
+
+name="searchType"
+
+value="github"
+
+>
+
+GitHub
+
+
+</label>
+
+
+
+
+
+
+<label class="option">
+
+
+<input
+
+type="radio"
+
+name="searchType"
+
+value="dailymotion"
+
+>
+
+Dailymotion
+
+
+</label>
+
+
+
+
+
+
+<label class="option">
+
+
+<input
+
+type="radio"
+
+name="searchType"
+
+value="wikimedia"
+
+>
+
+Wikimedia
+
+
+</label>
+
+
+
+</div>
+
+
+
+
+
+
+
+<iframe
+
+id="searchFrame"
+
+src="archive.html">
+
+</iframe>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<script>
+
+
+
+let currentType="archive";
+
+let pendingSearchText="";
+
+let searchFrame=document.getElementById("searchFrame");
+let searchFrameReady=Boolean(searchFrame.contentDocument && searchFrame.contentDocument.readyState==="complete" && searchFrame.contentWindow.location.href!=="about:blank");
+
+searchFrame.addEventListener("load",function(){
+    searchFrameReady=true;
+    observeSearchFrame();
+    if(pendingSearchText){
+        searchFrame.contentWindow.postMessage(pendingSearchText,"*");
+        pendingSearchText="";
+    }
+});
+
+let searchFrameObserver;
+
+function resizeSearchFrame(){
+    try{
+        const frameDocument=searchFrame.contentDocument;
+        if(!frameDocument) return;
+        const frameHeight=Math.max(
+            frameDocument.documentElement?.scrollHeight || 0,
+            frameDocument.body?.scrollHeight || 0
+        );
+        if(frameHeight) searchFrame.style.height=frameHeight+"px";
+    }
+    catch(error){
+        searchFrame.style.height="100vh";
+    }
+}
+
+function observeSearchFrame(){
+    if(searchFrameObserver) searchFrameObserver.disconnect();
+    resizeSearchFrame();
+    try{
+        const frameDocument=searchFrame.contentDocument;
+        if(!frameDocument) return;
+        searchFrameObserver=new ResizeObserver(resizeSearchFrame);
+        if(frameDocument.documentElement) searchFrameObserver.observe(frameDocument.documentElement);
+        if(frameDocument.body) searchFrameObserver.observe(frameDocument.body);
+    }
+    catch(error){
+        searchFrame.style.height="100vh";
+    }
+}
+
+
+
+
+
+let pages={
+
+
+google:"google.html",
+
+archive:"archive.html",
+
+wikipedia:"wikipedia.html",
+
+github:"github.html",
+
+dailymotion:"dailymotion.html",
+
+wikimedia:"wikimedia.html"
+
+
+};
+
+
+
+
+
+
+
+document
+
+.querySelectorAll(
+
+"input[name='searchType']"
+
+)
+
+.forEach(option=>{
+
+
+
+option.addEventListener(
+
+"change",
+
+function(){
+
+
+
+currentType=this.value;
+
+pendingSearchText=document.getElementById("searchText").value.trim();
+searchFrameReady=false;
+
+
+
+let frame=
+
+document
+
+.getElementById(
+
+"searchFrame"
+
+);
+
+
+
+
+frame.src=
+
+pages[currentType];
+
+
+
+});
+
+
+
+});
+
+
+
+
+
+
+
+
+
+document.querySelectorAll("input[name='searchType']").forEach(option=>{
+    option.addEventListener("click",function(){
+        if(this.value!==currentType) return;
+        pendingSearchText=document.getElementById("searchText").value.trim();
+        if(pendingSearchText && searchFrameReady){
+            searchFrame.contentWindow.postMessage(pendingSearchText,"*");
+            pendingSearchText="";
+        }
+    });
+});
+
+function sendSearch(){
+
+
+
+let text=
+
+document
+
+.getElementById("searchText")
+
+.value
+
+.trim();
+
+
+
+
+
+if(!text){
+
+
+alert("Enter search text");
+
+return;
+
+
+}
+
+
+
+
+
+let frame=
+
+document
+
+.getElementById(
+
+"searchFrame"
+
+);
+
+
+
+
+
+frame.contentWindow.postMessage(
+
+text,
+
+"*"
+
+);
+
+
+
+}
+
+
+
+
+
+
+
+
+document
+
+.getElementById("searchText")
+
+.addEventListener(
+
+"keypress",
+
+function(e){
+
+
+
+if(e.key==="Enter"){
+
+
+sendSearch();
+
+
+}
+
+
+});
+
+    document.getElementById("shareLinkButton").addEventListener("click",async function(){
+        const searchText=document.getElementById("searchText").value.trim();
+        const shareURL="https://yan1website.github.io/YAN1.search/index2.html?txt="+encodeURIComponent(searchText);
+
+        if(navigator.share){
+            try{
+                await navigator.share({
+                    title:"YAN1 Search",
+                    text:searchText ? "Search: "+searchText : "Open YAN1 Search",
+                    url:shareURL
+                });
+                return;
+            }
+            catch(error){
+                if(error.name==="AbortError") return;
+            }
+        }
+
+        try{
+            await navigator.clipboard.writeText(shareURL);
+            this.title="Link copied";
+            this.setAttribute("aria-label","Share link copied");
+            window.setTimeout(()=>{
+                this.title="Copy share link";
+                this.setAttribute("aria-label","Copy share link");
+            },1800);
+        }
+        catch(error){
+            window.prompt("Copy this share link:",shareURL);
+        }
+    });
+
+    const sharedText=new URLSearchParams(window.location.search).get("txt");
+    if(sharedText && sharedText.trim()){
+        document.getElementById("searchText").value=sharedText;
+        pendingSearchText=sharedText.trim();
+        if(searchFrameReady){
+            searchFrame.contentWindow.postMessage(pendingSearchText,"*");
+            pendingSearchText="";
+        }
+    }
+
+    </script>
+
+    <script src="yan1-app.js"></script>
+
+</body>
+</html>
