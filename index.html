@@ -17,9 +17,15 @@
     .quick-link:hover, .quick-link:focus-visible { background: #4b5563; outline: 2px solid #93c5fd; outline-offset: 2px; }
     header.compact .quick-link { width: 34px; height: 34px; font-size: 19px; }
     header p { min-width: 0; max-width: 1100px; margin: 0; overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+    .focus-exit { flex: 0 0 auto; padding: 8px 12px; color: #f9fafb; background: #374151; border: 1px solid #6b7280; border-radius: 6px; cursor: pointer; }
+    .focus-exit:hover, .focus-exit:focus-visible { color: white; background: #4b5563; outline: 2px solid #93c5fd; outline-offset: 2px; }
     #pages { width: 100%; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
     .page { display: grid; grid-template-rows: 54px minmax(0, 1fr); width: 100%; height: min(92vh, 1100px); min-height: 680px; min-width: 0; overflow: hidden; background: white; border: 0; border-radius: 0; box-shadow: none; }
     .page + .page { border-top: 3px solid var(--divider-color, #38bdf8); }
+    body.focused { overflow: hidden; }
+    body.focused #pages .page:not(.focused) { display: none; }
+    body.focused #pages .page.focused { position: fixed; z-index: 1; top: var(--focused-page-top, 64px); right: 0; bottom: 0; left: 0; width: auto; height: auto; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+    body.focused .page.focused .page-label, body.focused #sentinel, body.focused #message { display: none; }
     body.standalone { display: grid; grid-template-rows: auto minmax(0, 1fr); width: 100%; height: 100%; min-height: 0; overflow: hidden; }
     body.standalone #pages { height: 100%; min-height: 0; grid-template-rows: minmax(0, 1fr); }
     body.standalone .page { height: 100%; min-height: 0; }
@@ -50,6 +56,7 @@
       <a class="quick-link" href="https://yan1website.github.io/YAN1.home/search/index.html" target="_blank" rel="noopener noreferrer" aria-label="Open search" title="Search">🔎</a>
     </nav>
     <p id="status">Picking a page to start…</p>
+    <button id="focus-exit" class="focus-exit" type="button" hidden>← All websites</button>
   </header>
   <main id="pages" aria-live="polite"></main>
   <div id="sentinel" aria-hidden="true">Loading more pages as you scroll…</div>
@@ -59,6 +66,7 @@
     const pages = document.querySelector('#pages');
     const status = document.querySelector('#status');
     const siteHeader = document.querySelector('#site-header');
+    const focusExitButton = document.querySelector('#focus-exit');
     const sentinel = document.querySelector('#sentinel');
     const message = document.querySelector('#message');
     const requestedPage = new URLSearchParams(window.location.search).get('page');
@@ -68,6 +76,7 @@
     let lastScrollY = window.scrollY;
     let scrollFrame = 0;
     let sentinelReobserveScheduled = false;
+    let focusedPage = null;
     const savedMedia = new WeakMap();
     const mediaWatchers = new WeakMap();
     const visiblePages = new Set();
@@ -317,6 +326,32 @@
       }
     }
 
+    function focusPage(section, frame) {
+      focusedPage = section;
+      section.classList.add('focused');
+      document.body.classList.add('focused');
+      siteHeader.classList.remove('hidden', 'compact');
+      section.style.setProperty('--focused-page-top', `${siteHeader.getBoundingClientRect().height}px`);
+      focusExitButton.hidden = false;
+      status.textContent = `Showing: ${section.dataset.filename}`;
+      activateFrame(frame);
+    }
+
+    function showAllPages() {
+      if (!focusedPage) return;
+      const section = focusedPage;
+      focusedPage = null;
+      section.classList.remove('focused');
+      section.style.removeProperty('--focused-page-top');
+      document.body.classList.remove('focused');
+      focusExitButton.hidden = true;
+      status.textContent = 'Browsing all pages';
+      lastScrollY = window.scrollY;
+      section.querySelector('.fullscreen-button').focus();
+    }
+
+    focusExitButton.addEventListener('click', showAllPages);
+
     function appendPage(filename) {
       const section = document.createElement('section');
       section.className = 'page';
@@ -383,7 +418,7 @@
       const fullscreenButton = document.createElement('button');
       fullscreenButton.className = 'fullscreen-button';
       fullscreenButton.type = 'button';
-      fullscreenButton.title = standalone ? `Enter fullscreen for ${filename}` : `Open ${filename} in a new tab`;
+      fullscreenButton.title = standalone ? `Enter fullscreen for ${filename}` : `View ${filename}`;
       fullscreenButton.setAttribute('aria-label', fullscreenButton.title);
       fullscreenButton.innerHTML = standalone
         ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></svg>'
@@ -399,8 +434,7 @@
           return;
         }
 
-        const pageURL = new URL(filename, document.baseURI);
-        window.open(pageURL.href, '_blank', 'noopener,noreferrer');
+        focusPage(section, frame);
       });
       actions.append(reloadButton, shareButton, fullscreenButton);
       label.append(pageName, actions);
@@ -471,6 +505,9 @@
     window.addEventListener('resize', () => {
       recycleObserver.disconnect();
       recycleObserver = observeDistantPages();
+      if (focusedPage) {
+        focusedPage.style.setProperty('--focused-page-top', `${siteHeader.getBoundingClientRect().height}px`);
+      }
     });
     window.addEventListener('blur', refreshVisiblePages);
     window.addEventListener('focus', refreshVisiblePages);
