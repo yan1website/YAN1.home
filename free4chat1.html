@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>Free4.chat — Browse Rooms</title>
+  <style>
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html, body { width: 100%; min-width: 0; height: 100%; margin: 0; }
+    body {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      color: #f8fafc;
+      background: #111827;
+      font: 14px/1.5 system-ui, sans-serif;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 64px;
+      padding: max(10px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) 10px max(18px, env(safe-area-inset-left));
+      background: #1f2937;
+      border-bottom: 1px solid #374151;
+    }
+    h1 {
+      flex: 1 1 180px;
+      min-width: 0;
+      margin: 0;
+      font-size: clamp(16px, 2.5vw, 20px);
+      overflow-wrap: anywhere;
+    }
+    form { display: flex; flex: 0 1 auto; min-width: 0; gap: 8px; }
+    input, button {
+      min-height: 44px;
+      border: 1px solid #4b5563;
+      border-radius: 8px;
+      font: inherit;
+    }
+    input {
+      width: min(34vw, 280px);
+      min-width: 0;
+      padding: 8px 11px;
+      color: #f8fafc;
+      background: #111827;
+      font-size: 16px;
+    }
+    button {
+      padding: 8px 14px;
+      color: #111827;
+      background: #93c5fd;
+      border-color: #93c5fd;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:hover { background: #bfdbfe; }
+    button:focus-visible, input:focus-visible {
+      outline: 2px solid #f8fafc;
+      outline-offset: 2px;
+    }
+    button:disabled { cursor: wait; opacity: .65; }
+    main {
+      min-height: 0;
+      min-width: 0;
+      overflow: auto;
+      overscroll-behavior: contain;
+    }
+    #status { margin: 0; padding: 8px 12px; color: #cbd5e1; }
+    #room-grid {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+    .room-card {
+      width: 100%;
+      min-width: 0;
+      overflow: hidden;
+      background: #030712;
+      border: clamp(2px, 0.5vw, 4px) solid var(--room-border);
+    }
+    .room-image-button {
+      display: block;
+      width: 100%;
+      min-height: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #030712;
+      border: 0;
+      border-radius: 0;
+    }
+    .room-image {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 85vh;
+      max-height: 85dvh;
+      object-fit: contain;
+      background: #030712;
+    }
+    .image-fallback {
+      display: grid;
+      width: 100%;
+      height: 180px;
+      min-height: 150px;
+      place-items: center;
+      color: #cbd5e1;
+      background: #030712;
+    }
+    .room-title {
+      margin: 0;
+      padding: 12px;
+      color: #f8fafc;
+      background: #1f2937;
+      font-size: 16px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+    #load-sentinel { height: 1px; }
+    #room-panel { width: 100%; height: 100%; }
+    #room-frame {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      background: #fff;
+      border: 0;
+    }
+    @media (max-width: 600px) {
+      header {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 8px;
+        padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left));
+      }
+      h1 { flex: none; }
+      form { width: 100%; }
+      input { flex: 1 1 auto; width: 0; }
+    }
+    @media (max-width: 360px) {
+      header { gap: 6px; }
+      form { gap: 6px; }
+      button { padding-inline: 10px; }
+    }
+    @media (max-height: 500px) and (orientation: landscape) {
+      header { min-height: 52px; padding-block: 4px; }
+      h1 { font-size: 16px; }
+      .room-image { max-height: 75dvh; }
+      #room-frame { min-height: 0; }
+    }
+  </style>
+  <script src="app-launch.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1 id="page-title">Free4.chat Rooms</h1>
+    <form id="search-form" role="search">
+      <input id="search-input" type="search" placeholder="Search room titles" aria-label="Search room titles">
+      <button id="search-button" type="submit">Search</button>
+    </form>
+  </header>
+  <main id="main-content">
+    <p id="status" role="status" aria-live="polite">Loading rooms…</p>
+    <section id="room-grid" aria-label="Free4.chat rooms"></section>
+    <div id="load-sentinel" aria-hidden="true"></div>
+    <section id="room-panel" aria-label="Selected chat room" hidden>
+      <iframe
+        id="room-frame"
+        title="Free4.chat room"
+        allow="autoplay; camera; microphone; fullscreen"
+        allowfullscreen>
+      </iframe>
+    </section>
+  </main>
+  <script>
+    (() => {
+      const SHEET_ID = '12qonWolyt9ECuvj8NA-s6F-PvolR4OkxOYD-raF_9hM';
+      const PAGE_SIZE = 10;
+      const main = document.querySelector('#main-content');
+      const status = document.querySelector('#status');
+      const searchForm = document.querySelector('#search-form');
+      const searchInput = document.querySelector('#search-input');
+      const searchButton = document.querySelector('#search-button');
+      const pageTitle = document.querySelector('#page-title');
+      const roomGrid = document.querySelector('#room-grid');
+      const loadSentinel = document.querySelector('#load-sentinel');
+      const roomPanel = document.querySelector('#room-panel');
+      const roomFrame = document.querySelector('#room-frame');
+      let offset = 0;
+      let hasMore = true;
+      let isLoading = false;
+      let activeSearch = '';
+      let requestId = 0;
+
+      function queryUrl(query) {
+        const params = new URLSearchParams({ tqx: 'out:json', tq: query });
+        return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`;
+      }
+
+      async function querySheet(query) {
+        const response = await fetch(queryUrl(query), { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Google Sheets request failed (${response.status})`);
+
+        const text = await response.text();
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        if (start < 0 || end < start) throw new Error('Invalid Google Sheets response');
+
+        const result = JSON.parse(text.slice(start, end + 1));
+        if (result.status !== 'ok') {
+          throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed');
+        }
+        return result.table;
+      }
+
+      function cellValue(row, index) {
+        return String(row.c?.[index]?.v ?? row.c?.[index]?.f ?? '').trim();
+      }
+
+      function parseRoom(row) {
+        const title = cellValue(row, 1);
+        let url;
+        try {
+          url = new URL(cellValue(row, 0));
+        } catch (_) {
+          return null;
+        }
+        if (!title || url.protocol !== 'https:' || !['free4.chat', 'www.free4.chat'].includes(url.hostname)) {
+          return null;
+        }
+
+        let image = '';
+        try {
+          const parsedImage = new URL(cellValue(row, 2));
+          if (parsedImage.protocol === 'https:') image = parsedImage.href;
+        } catch (_) {}
+        return { title, url: url.href, image };
+      }
+
+      function makeCard(room, index) {
+        const card = document.createElement('article');
+        card.className = 'room-card';
+        card.style.setProperty('--room-border', `hsl(${(index * 137.508) % 360} 78% 62%)`);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'room-image-button';
+        button.setAttribute('aria-label', `Open ${room.title}`);
+        button.addEventListener('click', () => openRoom(room));
+
+        if (room.image) {
+          const image = document.createElement('img');
+          image.className = 'room-image';
+          image.src = room.image;
+          image.alt = room.title;
+          image.loading = 'lazy';
+          image.referrerPolicy = 'no-referrer';
+          image.addEventListener('error', () => {
+            const fallback = document.createElement('span');
+            fallback.className = 'image-fallback';
+            fallback.textContent = 'Image unavailable';
+            image.replaceWith(fallback);
+          }, { once: true });
+          button.append(image);
+        } else {
+          const fallback = document.createElement('span');
+          fallback.className = 'image-fallback';
+          fallback.textContent = 'Image unavailable';
+          button.append(fallback);
+        }
+        const title = document.createElement('h2');
+        title.className = 'room-title';
+        title.textContent = room.title;
+        card.append(title, button);
+        return card;
+      }
+
+      function openRoom(room) {
+        pageTitle.textContent = room.title;
+        roomGrid.hidden = true;
+        loadSentinel.hidden = true;
+        status.hidden = true;
+        roomPanel.hidden = false;
+        roomFrame.src = room.url;
+      }
+
+      function escapeQueryText(value) {
+        const escapedRegex = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return escapedRegex.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      }
+
+      async function loadNextPage() {
+        if (isLoading || !hasMore || roomPanel.hidden === false) return;
+        isLoading = true;
+        const thisRequest = requestId;
+        status.hidden = false;
+        status.textContent = offset === 0 ? 'Loading rooms…' : 'Loading more rooms…';
+        try {
+          const where = activeSearch
+            ? ` and B matches '(?i).*${escapeQueryText(activeSearch)}.*'`
+            : '';
+          const table = await querySheet(
+            `select A, B, C where A is not null${where} limit ${PAGE_SIZE} offset ${offset}`
+          );
+          if (thisRequest !== requestId) return;
+
+          const rows = table.rows || [];
+          for (const row of rows) {
+            const room = parseRoom(row);
+            if (room) roomGrid.append(makeCard(room, roomGrid.children.length));
+          }
+          offset += rows.length;
+          hasMore = rows.length === PAGE_SIZE;
+          if (hasMore) {
+            status.hidden = true;
+            const mainBounds = main.getBoundingClientRect();
+            const sentinelBounds = loadSentinel.getBoundingClientRect();
+            if (sentinelBounds.top <= mainBounds.bottom + 240) {
+              requestAnimationFrame(() => loadNextPage());
+            }
+          } else if (offset === 0) {
+            status.textContent = activeSearch ? 'No matching rooms found.' : 'No rooms found.';
+          } else {
+            status.hidden = true;
+          }
+        } catch (error) {
+          if (thisRequest === requestId) {
+            status.textContent = `Could not load rooms: ${error.message}`;
+            hasMore = false;
+          }
+        } finally {
+          if (thisRequest === requestId) isLoading = false;
+        }
+      }
+
+      const observer = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadNextPage();
+      }, { root: main, rootMargin: '240px 0px' });
+      observer.observe(loadSentinel);
+
+      searchForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        activeSearch = searchInput.value.trim();
+        requestId += 1;
+        isLoading = false;
+        offset = 0;
+        hasMore = true;
+        roomFrame.removeAttribute('src');
+        roomPanel.hidden = true;
+        roomGrid.hidden = false;
+        loadSentinel.hidden = false;
+        roomGrid.replaceChildren();
+        pageTitle.textContent = activeSearch ? `Search: ${activeSearch}` : 'Free4.chat Rooms';
+        searchButton.disabled = true;
+        main.scrollTop = 0;
+        await loadNextPage();
+        searchButton.disabled = false;
+      });
+
+      loadNextPage();
+    })();
+  </script>
+</body>
+</html>

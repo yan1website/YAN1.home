@@ -7,8 +7,8 @@
   <title>Explore</title>
   <style>
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body { margin: 0; color: #f8fafc; background: #111827; font-family: system-ui, sans-serif; }
+    html, body { height: 100%; width: 100%; margin: 0; padding: 0; scroll-behavior: smooth; }
+    body { color: #f8fafc; background: #111827; font-family: system-ui, sans-serif; }
     header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 18px; color: #e5e7eb; background: rgb(17 24 39 / 92%); border-bottom: 1px solid #374151; backdrop-filter: blur(8px); transition: padding 180ms ease, transform 180ms ease; }
     header.hidden { transform: translateY(-110%); }
     header.compact { padding-top: 5px; padding-bottom: 5px; }
@@ -20,6 +20,10 @@
     #pages { width: 100%; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
     .page { display: grid; grid-template-rows: 54px minmax(0, 1fr); width: 100%; height: min(92vh, 1100px); min-height: 680px; min-width: 0; overflow: hidden; background: white; border: 0; border-radius: 0; box-shadow: none; }
     .page + .page { border-top: 3px solid var(--divider-color, #38bdf8); }
+    body.standalone { display: grid; grid-template-rows: auto minmax(0, 1fr); width: 100%; height: 100%; min-height: 0; overflow: hidden; }
+    body.standalone #pages { height: 100%; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+    body.standalone .page { height: 100%; min-height: 0; }
+    body.standalone #sentinel, body.standalone #message { display: none; }
     .page-label { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 54px; padding: 8px 16px; color: #f3f4f6; background: #1f2937; border-bottom: 1px solid #374151; font-size: 16px; font-weight: 650; }
     .page-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .page-name { color: var(--name-color, #f3f4f6); }
@@ -41,6 +45,7 @@
 <body>
   <header id="site-header">
     <nav class="quick-links" aria-label="Quick links">
+      <a class="quick-link" href="list.html" aria-label="Open website list" title="Website list">⏷</a>
       <a class="quick-link" href="https://yan1website.github.io/YAN1.home/profile/index.html" target="_blank" rel="noopener noreferrer" aria-label="Open profile" title="Profile">🪪</a>
       <a class="quick-link" href="https://yan1website.github.io/YAN1.home/search/index.html" target="_blank" rel="noopener noreferrer" aria-label="Open search" title="Search">🔎</a>
     </nav>
@@ -56,6 +61,9 @@
     const siteHeader = document.querySelector('#site-header');
     const sentinel = document.querySelector('#sentinel');
     const message = document.querySelector('#message');
+    const requestedPage = new URLSearchParams(window.location.search).get('page');
+    const standalone = requestedPage !== null;
+    if (standalone) document.body.classList.add('standalone');
     let remaining = [];
     let lastScrollY = window.scrollY;
     let scrollFrame = 0;
@@ -375,11 +383,24 @@
       const fullscreenButton = document.createElement('button');
       fullscreenButton.className = 'fullscreen-button';
       fullscreenButton.type = 'button';
-      fullscreenButton.title = `Open ${filename} in a new tab`;
-      fullscreenButton.setAttribute('aria-label', `Open ${filename} in a new tab`);
-      fullscreenButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3 11 13"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>';
-      fullscreenButton.addEventListener('click', () => {
-        window.open(shareUrl, '_blank', 'noopener,noreferrer');
+      fullscreenButton.title = standalone ? `Enter fullscreen for ${filename}` : `Open ${filename} in a new tab`;
+      fullscreenButton.setAttribute('aria-label', fullscreenButton.title);
+      fullscreenButton.innerHTML = standalone
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3 11 13"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>';
+      fullscreenButton.addEventListener('click', async () => {
+        if (standalone) {
+          try {
+            if (document.fullscreenElement === section) await document.exitFullscreen();
+            else await section.requestFullscreen();
+          } catch (error) {
+            status.textContent = `Fullscreen unavailable: ${error.message}`;
+          }
+          return;
+        }
+
+        const pageURL = new URL(filename, document.baseURI);
+        window.open(pageURL.href, '_blank', 'noopener,noreferrer');
       });
       actions.append(reloadButton, shareButton, fullscreenButton);
       label.append(pageName, actions);
@@ -413,9 +434,13 @@
       });
       section.append(label, frame);
       pages.append(section);
-      loadObserver.observe(section);
-      activeObserver.observe(section);
-      recycleObserver.observe(section);
+      if (standalone) {
+        activateFrame(frame);
+      } else {
+        loadObserver.observe(section);
+        activeObserver.observe(section);
+        recycleObserver.observe(section);
+      }
     }
 
     function appendNext() {
@@ -472,6 +497,18 @@
     sentinelObserver.observe(sentinel);
 
     async function start() {
+      if (standalone) {
+        if (!isValidPagePath(requestedPage)) {
+          message.textContent = 'The requested page must be a relative HTML path, such as "page.html" or "news/index.html".';
+          status.textContent = 'Unable to open page';
+          return;
+        }
+        document.title = requestedPage;
+        status.textContent = `Opening: ${requestedPage}`;
+        appendPage(requestedPage);
+        return;
+      }
+
       try {
         const response = await fetch('list.json', { cache: 'no-store' });
         if (!response.ok) throw new Error(`Could not read list.json (${response.status})`);

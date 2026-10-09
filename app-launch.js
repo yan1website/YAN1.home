@@ -3,6 +3,7 @@
   if (window.AndroidPython && typeof window.AndroidPython.executePython === 'function') return;
 
   const pageURL = new URL(window.location.href);
+  if (pageURL.searchParams.has('page')) return;
   if (pageURL.protocol !== 'http:' && pageURL.protocol !== 'https:') return;
   if (pageURL.hostname === '127.0.0.1' || pageURL.hostname === 'localhost') return;
 
