@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#111827">
+	<title>Search SoundCloud — YAN1</title>
+	<script src="app-launch.js" defer></script>
+	<style>
+		* { box-sizing: border-box; }
+		body { min-height: 100vh; margin: 0; padding: 28px 16px 44px; background: #111827; color: #f8fafc; font: 16px/1.5 system-ui, sans-serif; }
+		main { width: min(100%, 900px); margin: 0 auto; }
+		h1 { margin: 0 0 20px; text-align: center; font-size: clamp(24px, 5vw, 34px); }
+		#search-form { display: flex; gap: 8px; margin: 0 0 18px; }
+		#search-input { flex: 1; min-width: 0; min-height: 46px; padding: 10px 12px; border: 1px solid #4b5563; border-radius: 8px; background: #1f2937; color: #f8fafc; font: inherit; }
+		#search-button { min-height: 46px; padding: 10px 18px; border: 1px solid #93c5fd; border-radius: 8px; background: #93c5fd; color: #111827; font: inherit; font-weight: 700; cursor: pointer; }
+		#search-button:hover { background: #bfdbfe; }
+		#search-button:disabled { cursor: wait; opacity: .65; }
+		#status { margin: 0 0 18px; padding: 12px; border-radius: 8px; background: #1f2937; color: #cbd5e1; text-align: center; }
+		#status.error { color: #fca5a5; }
+		#results { padding: 16px; border: 1px solid #374151; border-radius: 12px; background: #1f2937; }
+		.result-title { margin: 0 0 8px; overflow-wrap: anywhere; font-size: 18px; }
+		.result-url { display: block; overflow-wrap: anywhere; color: #93c5fd; }
+		.result-url:hover { color: #bfdbfe; }
+		.result-note { margin: 10px 0 0; color: #cbd5e1; }
+		@media (max-width: 520px) { body { padding: 22px 10px 32px; } }
+	</style>
+</head>
+<body>
+	<main>
+		<h1>Search SoundCloud</h1>
+		<form id="search-form" role="search">
+			<input id="search-input" type="search" placeholder="Search songs on SoundCloud" aria-label="Search SoundCloud songs" autocomplete="off" required>
+			<button id="search-button" type="submit">Search</button>
+		</form>
+		<p id="status" role="status" aria-live="polite">Search for a song or artist to open matching SoundCloud results.</p>
+		<section id="results" aria-label="SoundCloud search results" hidden></section>
+	</main>
+	<script>
+		const searchForm = document.querySelector('#search-form');
+		const searchInput = document.querySelector('#search-input');
+		const searchButton = document.querySelector('#search-button');
+		const statusBox = document.querySelector('#status');
+		const results = document.querySelector('#results');
+
+		searchForm.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			const query = searchInput.value.trim();
+			if (!query) {
+				statusBox.textContent = 'Enter a song or artist to search SoundCloud.';
+				statusBox.classList.add('error');
+				statusBox.hidden = false;
+				return;
+			}
+
+			searchButton.disabled = true;
+			const soundCloudSearchUrl = new URL('https://soundcloud.com/search/sounds');
+			soundCloudSearchUrl.searchParams.set('q', query);
+			const title = document.createElement('h2');
+			title.className = 'result-title';
+			title.textContent = `SoundCloud results for “${query}”`;
+			const link = document.createElement('a');
+			link.className = 'result-url';
+			link.href = soundCloudSearchUrl.href;
+			link.target = '_blank';
+			link.rel = 'noopener noreferrer';
+			link.textContent = soundCloudSearchUrl.href;
+			link.setAttribute('aria-label', `Open SoundCloud search results for ${query}`);
+			const note = document.createElement('p');
+			note.className = 'result-note';
+			note.textContent = 'SoundCloud restricts direct browser API requests from this site. Open its search page to view the live results.';
+			results.replaceChildren(title, link, note);
+			results.hidden = false;
+			statusBox.classList.remove('error');
+			statusBox.textContent = 'SoundCloud search page ready.';
+			statusBox.hidden = false;
+			searchButton.disabled = false;
+		});
+	</script>
+</body>
+</html>

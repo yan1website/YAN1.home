@@ -113,6 +113,8 @@
       background: #030712;
     }
     .room-title {
+      flex: 1;
+      min-width: 0;
       margin: 0;
       padding: 12px;
       color: #f8fafc;
@@ -121,6 +123,21 @@
       line-height: 1.4;
       overflow-wrap: anywhere;
     }
+    .room-card-header { display: flex; align-items: stretch; background: #1f2937; }
+    .share-button {
+      display: inline-flex;
+      flex: 0 0 48px;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 10px;
+      color: #f8fafc;
+      background: #1f2937;
+      border: 0;
+      border-radius: 0;
+    }
+    .share-button:hover { background: #374151; }
+    .share-button svg { width: 20px; height: 20px; fill: currentColor; }
     #load-sentinel { height: 1px; }
     #room-panel { width: 100%; height: 100%; }
     #room-frame {
@@ -242,6 +259,33 @@
         return { title, url: url.href, image };
       }
 
+      async function shareRoom(room) {
+        const shareUrl = new URL('https://yan1website.github.io/YAN1.home/free4chat2.html');
+        shareUrl.searchParams.set('txt', room.url);
+        const shareBody = [
+          'YAN1 APP GEN 1',
+          'YAN1 APP GEN 1',
+          'YAN1 APP GEN 1',
+          'Found something interesting — have a look! ✨',
+          `💭 ${room.title}`,
+          'THANKS 🙏'
+        ].join('\n');
+        const shareText = `${shareBody}\n${shareUrl.href}`;
+
+        try {
+          if (navigator.share) {
+            await navigator.share({ title: 'YAN1 APP GEN 1', text: shareBody, url: shareUrl.href });
+          } else if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(shareText);
+            alert('Share message copied.');
+          } else {
+            window.prompt('Copy this message to share:', shareText);
+          }
+        } catch (error) {
+          if (error.name !== 'AbortError') window.prompt('Copy this message to share:', shareText);
+        }
+      }
+
       function makeCard(room, index) {
         const card = document.createElement('article');
         card.className = 'room-card';
@@ -275,7 +319,17 @@
         const title = document.createElement('h2');
         title.className = 'room-title';
         title.textContent = room.title;
-        card.append(title, button);
+        const cardHeader = document.createElement('div');
+        cardHeader.className = 'room-card-header';
+        const shareButton = document.createElement('button');
+        shareButton.type = 'button';
+        shareButton.className = 'share-button';
+        shareButton.setAttribute('aria-label', `Share ${room.title}`);
+        shareButton.title = 'Share';
+        shareButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7a3.3 3.3 0 0 0 0-1.39l7.05-4.11A3 3 0 1 0 15 5c0 .23.03.46.08.68L8.03 9.79a3 3 0 1 0 0 4.42l7.12 4.16a3 3 0 1 0 2.85-2.29Z"/></svg>';
+        shareButton.addEventListener('click', () => shareRoom(room));
+        cardHeader.append(title, shareButton);
+        card.append(cardHeader, button);
         return card;
       }
 

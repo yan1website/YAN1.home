@@ -37,12 +37,7 @@
       overflow-wrap: anywhere;
     }
     form { display: flex; flex: 0 1 auto; min-width: 0; gap: 8px; }
-    input, button {
-      min-height: 44px;
-      border: 1px solid #4b5563;
-      border-radius: 8px;
-      font: inherit;
-    }
+    input, button { min-height: 44px; border: 1px solid #4b5563; border-radius: 8px; font: inherit; }
     input {
       width: min(34vw, 280px);
       min-width: 0;
@@ -60,41 +55,14 @@
       cursor: pointer;
     }
     button:hover { background: #bfdbfe; }
-    button:focus-visible, input:focus-visible {
-      outline: 2px solid #f8fafc;
-      outline-offset: 2px;
-    }
+    button:focus-visible, input:focus-visible { outline: 2px solid #f8fafc; outline-offset: 2px; }
     button:disabled { cursor: wait; opacity: .65; }
-    main {
-      min-height: 0;
-      min-width: 0;
-      padding: 0;
-      overflow: auto;
-      overscroll-behavior: contain;
-    }
-    #status, #search-status { color: #cbd5e1; }
-    #status, #search-status { margin: 0; padding: 8px 12px; }
-    #room-panel {
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-      height: 100%;
-      min-height: 0;
-    }
-    .selected-room-actions {
-      display: flex;
-      flex: 0 0 auto;
-      justify-content: flex-end;
-      padding: 4px 8px;
-      background: #1f2937;
-    }
-    #selected-room-share {
-      color: #f8fafc;
-      background: #374151;
-      border-color: #4b5563;
-    }
+    main { min-height: 0; min-width: 0; padding: 0; overflow: auto; overscroll-behavior: contain; }
+    #status, #search-status { margin: 0; padding: 8px 12px; color: #cbd5e1; }
+    #room-panel { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
+    .selected-room-actions { display: flex; flex: 0 0 auto; justify-content: flex-end; padding: 4px 8px; background: #1f2937; }
+    #selected-room-share { color: #f8fafc; background: #374151; border-color: #4b5563; }
     #selected-room-share:hover { background: #4b5563; }
-    #preview-button { flex: 1 1 auto; height: auto; min-height: 0; }
     .image-button {
       display: block;
       width: 100%;
@@ -105,45 +73,14 @@
       border: 0;
       border-radius: 0;
     }
-    .room-image {
-      display: block;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      background: #030712;
-    }
-    .image-fallback {
-      display: grid;
-      min-height: 180px;
-      place-items: center;
-      color: #cbd5e1;
-      background: #030712;
-    }
-    #room-frame {
-      display: block;
-      width: 100%;
-      height: 100%;
-      min-height: 0;
-      background: #fff;
-      border: 0;
-    }
-    #search-results {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
-      gap: 0;
-    }
-    .result-card {
-      min-width: 0;
-      overflow: hidden;
-      background: #1f2937;
-      border: 0;
-      border-radius: 0;
-    }
+    #preview-button { flex: 1 1 auto; height: auto; min-height: 0; }
+    .room-image { display: block; width: 100%; height: 100%; object-fit: contain; background: #030712; }
+    .image-fallback { display: grid; min-height: 180px; place-items: center; color: #cbd5e1; background: #030712; }
+    #room-frame { display: block; width: 100%; height: 100%; min-height: 0; background: #fff; border: 0; }
+    #search-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 0; }
+    .result-card { min-width: 0; overflow: hidden; background: #1f2937; border: 0; border-radius: 0; }
     .result-card .image-button { border: 0; border-radius: 0; }
-    .result-card .room-image {
-      height: clamp(150px, 28vw, 300px);
-      object-fit: contain;
-    }
+    .result-card .room-image { height: clamp(150px, 28vw, 300px); object-fit: contain; }
     .result-card .image-fallback { min-height: 180px; }
     .result-card-actions { display: flex; justify-content: flex-end; padding: 8px; }
     .share-button {
@@ -187,17 +124,17 @@
 </head>
 <body>
   <header>
-    <h1 id="page-title">Loading rooms…</h1>
+    <h1 id="page-title">Loading room…</h1>
     <form id="search-form" role="search">
       <input id="search-input" type="search" placeholder="Search room titles" aria-label="Search room titles" required>
       <button id="search-button" type="submit">Search</button>
     </form>
   </header>
   <main>
-    <p id="status" role="status" aria-live="polite">Checking the room list…</p>
+    <p id="status" role="status" aria-live="polite">Loading shared room…</p>
     <section id="room-panel" aria-label="Selected room" hidden>
       <div class="selected-room-actions">
-        <button id="selected-room-share" class="share-button" type="button" aria-label="Share selected room" title="Share" hidden>
+        <button id="selected-room-share" class="share-button" type="button" aria-label="Share selected room" title="Share">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7a3.3 3.3 0 0 0 0-1.39l7.05-4.11A3 3 0 1 0 15 5c0 .23.03.46.08.68L8.03 9.79a3 3 0 1 0 0 4.42l7.12 4.16a3 3 0 1 0 2.85-2.29Z"/></svg>
         </button>
       </div>
@@ -205,16 +142,10 @@
         <img id="preview-image" class="room-image" alt="">
         <span id="preview-fallback" class="image-fallback" hidden>Image unavailable</span>
       </button>
-      <iframe
-        id="room-frame"
-        title="Free4.chat room"
-        allow="autoplay; camera; microphone; fullscreen"
-        allowfullscreen
-        hidden>
-      </iframe>
+      <iframe id="room-frame" title="Free4.chat room" allow="autoplay; camera; microphone; fullscreen" allowfullscreen hidden></iframe>
     </section>
     <p id="search-status" role="status" aria-live="polite" hidden></p>
-    <section id="search-results" aria-label="Room search results"></section>
+    <section id="search-results" aria-label="Room search results" hidden></section>
   </main>
   <script>
     (() => {
@@ -235,26 +166,19 @@
       let selectedRoom = null;
 
       function queryUrl(query) {
-        const params = new URLSearchParams({
-          tqx: 'out:json',
-          tq: query
-        });
+        const params = new URLSearchParams({ tqx: 'out:json', tq: query });
         return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?${params}`;
       }
 
       async function querySheet(query) {
         const response = await fetch(queryUrl(query), { cache: 'no-store' });
         if (!response.ok) throw new Error(`Google Sheets request failed (${response.status})`);
-
         const text = await response.text();
         const start = text.indexOf('{');
         const end = text.lastIndexOf('}');
         if (start < 0 || end < start) throw new Error('Invalid Google Sheets response');
-
         const result = JSON.parse(text.slice(start, end + 1));
-        if (result.status !== 'ok') {
-          throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed');
-        }
+        if (result.status !== 'ok') throw new Error(result.errors?.[0]?.detailed_message || 'The sheet query failed');
         return result.table;
       }
 
@@ -273,6 +197,23 @@
         }
       }
 
+      function parseRoom(row) {
+        const url = getRoomUrl(cellValue(row, 0));
+        const title = cellValue(row, 1);
+        const imageValue = cellValue(row, 2);
+        if (!url || !title) return null;
+        let image = '';
+        try {
+          const parsedImage = new URL(imageValue);
+          if (parsedImage.protocol === 'https:') image = parsedImage.href;
+        } catch (_) {}
+        return { url, title, image };
+      }
+
+      function escapeQueryValue(value) {
+        return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      }
+
       async function shareRoom(room) {
         const shareUrl = new URL('https://yan1website.github.io/YAN1.home/free4chat2.html');
         shareUrl.searchParams.set('txt', room.url);
@@ -285,7 +226,6 @@
           'THANKS 🙏'
         ].join('\n');
         const shareText = `${shareBody}\n${shareUrl.href}`;
-
         try {
           if (navigator.share) {
             await navigator.share({ title: 'YAN1 APP GEN 1', text: shareBody, url: shareUrl.href });
@@ -300,39 +240,10 @@
         }
       }
 
-      function makeImageButton(imageUrl, title, className) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `image-button ${className}`;
-        button.setAttribute('aria-label', `Open ${title}`);
-
-        if (imageUrl) {
-          const image = document.createElement('img');
-          image.className = 'room-image';
-          image.src = imageUrl;
-          image.alt = title;
-          image.loading = 'lazy';
-          image.addEventListener('error', () => {
-            const fallback = document.createElement('span');
-            fallback.className = 'image-fallback';
-            fallback.textContent = 'Image unavailable';
-            image.replaceWith(fallback);
-          }, { once: true });
-          button.append(image);
-        } else {
-          const fallback = document.createElement('span');
-          fallback.className = 'image-fallback';
-          fallback.textContent = 'Image unavailable';
-          button.append(fallback);
-        }
-        return button;
-      }
-
       function showRoom(room) {
         selectedRoom = room;
         pageTitle.textContent = room.title;
         roomPanel.hidden = false;
-        selectedRoomShare.hidden = false;
         selectedRoomShare.setAttribute('aria-label', `Share ${room.title}`);
         previewButton.hidden = false;
         if (room.image) {
@@ -366,41 +277,31 @@
         roomFrame.hidden = false;
       }
 
-      function parseRoom(row) {
-        const url = getRoomUrl(cellValue(row, 0));
-        const title = cellValue(row, 1);
-        const imageValue = cellValue(row, 2);
-        if (!url || !title) return null;
-
-        let image = '';
-        try {
-          const parsedImage = new URL(imageValue);
-          if (parsedImage.protocol === 'https:') image = parsedImage.href;
-        } catch (_) {}
-        return { url, title, image };
-      }
-
-      async function loadRandomRoom() {
-        status.textContent = 'Counting rooms in the spreadsheet…';
-        const countTable = await querySheet('select count(A) where A is not null');
-        const count = Number(countTable.rows?.[0]?.c?.[0]?.v);
-        if (!Number.isInteger(count) || count < 0) throw new Error('The spreadsheet returned an invalid room count.');
-        if (count === 0) {
-          status.textContent = 'No rooms were found in column A.';
-          pageTitle.textContent = 'Free4.chat';
-          return;
+      function makeImageButton(imageUrl, title) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'image-button result-image-button';
+        button.setAttribute('aria-label', `Open ${title}`);
+        if (imageUrl) {
+          const image = document.createElement('img');
+          image.className = 'room-image';
+          image.src = imageUrl;
+          image.alt = title;
+          image.loading = 'lazy';
+          image.addEventListener('error', () => {
+            const fallback = document.createElement('span');
+            fallback.className = 'image-fallback';
+            fallback.textContent = 'Image unavailable';
+            image.replaceWith(fallback);
+          }, { once: true });
+          button.append(image);
+        } else {
+          const fallback = document.createElement('span');
+          fallback.className = 'image-fallback';
+          fallback.textContent = 'Image unavailable';
+          button.append(fallback);
         }
-
-        const randomIndex = Math.floor(Math.random() * count);
-        status.textContent = `Found ${count} room${count === 1 ? '' : 's'}. Loading a random room…`;
-        const roomTable = await querySheet(
-          `select A, B, C where A is not null limit 1 offset ${randomIndex}`
-        );
-        const room = roomTable.rows?.[0] && parseRoom(roomTable.rows[0]);
-        if (!room) throw new Error('The selected spreadsheet row is missing a valid room URL or title.');
-
-        showRoom(room);
-        status.hidden = true;
+        return button;
       }
 
       function renderResults(rows) {
@@ -410,12 +311,12 @@
           const room = parseRoom(row);
           if (!room) continue;
           matchCount += 1;
-
           const card = document.createElement('article');
           card.className = 'result-card';
-          const imageButton = makeImageButton(room.image, room.title, 'result-image-button');
+          const imageButton = makeImageButton(room.image, room.title);
           imageButton.addEventListener('click', () => openRoom(room));
           card.append(imageButton);
+
           const actions = document.createElement('div');
           actions.className = 'result-card-actions';
           const shareButton = document.createElement('button');
@@ -433,11 +334,24 @@
         return matchCount;
       }
 
+      async function loadSharedRoom() {
+        const sharedUrl = new URLSearchParams(window.location.search).get('txt')?.trim();
+        if (!sharedUrl) throw new Error('This link is missing its txt room URL.');
+        const roomUrl = getRoomUrl(sharedUrl);
+        if (!roomUrl) throw new Error('The txt parameter is not a valid Free4.chat room URL.');
+        const queryValue = escapeQueryValue(roomUrl);
+        const table = await querySheet(`select A, B, C where A = '${queryValue}' limit 1`);
+        const row = table.rows?.[0];
+        const room = row && parseRoom(row);
+        if (!room) throw new Error('No room matching this link was found in column A.');
+        showRoom(room);
+        status.hidden = true;
+      }
+
       searchForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         const searchText = searchInput.value.trim();
         if (!searchText) return;
-
         searchButton.disabled = true;
         searchStatus.hidden = true;
         status.hidden = true;
@@ -447,14 +361,10 @@
         try {
           const regexText = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const escapedText = regexText.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-          const table = await querySheet(
-            `select A, B, C where A is not null and B matches '(?i).*${escapedText}.*'`
-          );
+          const table = await querySheet(`select A, B, C where A is not null and B matches '(?i).*${escapedText}.*'`);
           const matchCount = renderResults(table.rows || []);
           searchStatus.hidden = matchCount > 0;
-          if (!matchCount) {
-            searchStatus.textContent = 'No matching room titles were found.';
-          }
+          if (!matchCount) searchStatus.textContent = 'No matching room titles were found.';
         } catch (error) {
           searchStatus.textContent = `Search failed: ${error.message}`;
           searchStatus.hidden = false;
@@ -466,13 +376,12 @@
       previewButton.addEventListener('click', () => {
         if (selectedRoom) openRoom(selectedRoom);
       });
-
       selectedRoomShare.addEventListener('click', () => {
         if (selectedRoom) shareRoom(selectedRoom);
       });
 
-      loadRandomRoom().catch((error) => {
-        status.textContent = `Could not load rooms: ${error.message}`;
+      loadSharedRoom().catch((error) => {
+        status.textContent = `Could not load shared room: ${error.message}`;
         status.hidden = false;
         pageTitle.textContent = 'Free4.chat';
       });
