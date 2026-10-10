@@ -174,10 +174,11 @@
             }
         }
     </style>
+  <script src="../app-launch.js" defer></script>
 </head>
 <body>
     <header>
-        <a href="https://yan1website.github.io/YAN1.youtube/">YAN1 Videos</a>
+        <a href="https://yan1website.github.io/YAN1.home/YAN1.youtube/">YAN1 Videos</a>
     </header>
 
     <main>
@@ -203,8 +204,9 @@
             if (isYAN1App()) return;
 
             try {
-                if (sessionStorage.getItem("yan1_launched") === "true") return;
-                sessionStorage.setItem("yan1_launched", "true");
+                const pageKey = `yan1_launched:${window.location.pathname}${window.location.search}`;
+                if (sessionStorage.getItem(pageKey) === "true") return;
+                sessionStorage.setItem(pageKey, "true");
             } catch (error) {
                 console.warn("Unable to check YAN1 launch state:", error);
             }
@@ -215,7 +217,7 @@
                 "intent://" + cleanPath + "#Intent;" +
                 "scheme=https;" +
                 "package=com.example1.yan1appgen1;" +
-                "S.browser_fallback_url=" + encodeURIComponent(currentURL) + ";" +
+                "S.browser_fallback_url=" + encodeURIComponent(new URL("/YAN1.home/download_app.html", window.location.origin).href) + ";" +
                 "end;";
 
             window.location.href = intentURL;

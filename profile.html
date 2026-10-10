@@ -146,17 +146,17 @@
       <button id="search-button" type="submit">Search</button>
     </form>
     <p id="status" role="status" aria-live="polite"></p>
-    <section aria-labelledby="primary-sheet-heading">
+    <section id="primary-sheet-section" aria-labelledby="primary-sheet-heading">
       <h2 id="primary-sheet-heading">Registered accounts in YAN1</h2>
       <p id="primary-status" role="status" aria-live="polite"></p>
       <section id="primary-results" class="results-list" aria-label="First spreadsheet search results" tabindex="0"></section>
     </section>
-    <section aria-labelledby="additional-sheet-heading">
+    <section id="additional-sheet-section" aria-labelledby="additional-sheet-heading">
       <h2 id="additional-sheet-heading">Sayora uploads</h2>
       <p id="additional-status" role="status" aria-live="polite"></p>
       <section id="additional-results" class="results-list" aria-label="Second spreadsheet search results" tabindex="0"></section>
     </section>
-    <section aria-labelledby="third-sheet-heading">
+    <section id="third-sheet-section" aria-labelledby="third-sheet-heading">
       <h2 id="third-sheet-heading">Comments to Sayora posts</h2>
       <p id="third-status" role="status" aria-live="polite"></p>
       <section id="third-results" class="results-list" aria-label="Third spreadsheet search results" tabindex="0"></section>
@@ -177,9 +177,10 @@
     const tableRequests = new Map();
     let requestNumber = 0;
 
-    function getSheetTable(sheetId) {
-      if (cachedTables.has(sheetId)) return Promise.resolve(cachedTables.get(sheetId));
-      if (tableRequests.has(sheetId)) return tableRequests.get(sheetId);
+    function getSheetTable(sheetId, query = '') {
+      if (!query && cachedTables.has(sheetId)) return Promise.resolve(cachedTables.get(sheetId));
+      const requestKey = `${sheetId}:${query}`;
+      if (tableRequests.has(requestKey)) return tableRequests.get(requestKey);
 
       const tableRequest = new Promise((resolve, reject) => {
         const callbackName = `receiveProfileSheetData${++requestNumber}`;
@@ -212,17 +213,18 @@
           cleanup();
           reject(new Error('Could not load the public spreadsheet. Check your connection and try again.'));
         };
-        const request = `out:json;responseHandler:${callbackName}`;
-        script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=${encodeURIComponent(request)}`;
+        const params = new URLSearchParams({ tqx: `out:json;responseHandler:${callbackName}` });
+        if (query) params.set('tq', query);
+        script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?${params}`;
         document.head.append(script);
       }).then(table => {
-        cachedTables.set(sheetId, table);
+        if (!query) cachedTables.set(sheetId, table);
         return table;
       }).finally(() => {
-        tableRequests.delete(sheetId);
+        tableRequests.delete(requestKey);
       });
 
-      tableRequests.set(sheetId, tableRequest);
+      tableRequests.set(requestKey, tableRequest);
       return tableRequest;
     }
 
@@ -343,12 +345,14 @@
     const sheets = [
       {
         id: sheetIds.primary,
+        section: document.getElementById('primary-sheet-section'),
         status: document.getElementById('primary-status'),
         results: document.getElementById('primary-results'),
         resultLabel: 'profile'
       },
       {
         id: sheetIds.additional,
+        section: document.getElementById('additional-sheet-section'),
         status: document.getElementById('additional-status'),
         results: document.getElementById('additional-results'),
         showImages: true,
@@ -357,6 +361,7 @@
       },
       {
         id: sheetIds.third,
+        section: document.getElementById('third-sheet-section'),
         status: document.getElementById('third-status'),
         results: document.getElementById('third-results'),
         showImages: true,
@@ -397,6 +402,11 @@
         }
       });
 
+      sheets
+        .slice()
+        .sort((left, right) => Number(right.results.childElementCount > 0) - Number(left.results.childElementCount > 0))
+        .forEach(sheet => sheet.section.parentElement.append(sheet.section));
+
       const failedCount = outcomes.filter(outcome => outcome.status === 'rejected').length;
       status.textContent = failedCount === 0
         ? `Search complete for all ${sheets.length} spreadsheets.`
@@ -407,46 +417,6 @@
       button.disabled = false;
     });
 
-    async function fetchInternalEmail() {
-      const internalData = window.InternalData;
-      if (!internalData) return null;
-
-      const keysToTry = ['email', 'userToken', 'userEmail', 'user_email'];
-      const hostsToTry = ['yan1website.github.io', 'websiteA.com', 'github.io', 'github.com'];
-      const errors = [];
-
-      async function readValue(read) {
-        try {
-          const value = await read();
-          if (typeof value !== 'string') return null;
-          const email = value.trim();
-          return email && !email.startsWith('ERROR:') ? email : null;
-        } catch (error) {
-          errors.push(error instanceof Error ? error.message : String(error));
-          return null;
-        }
-      }
-
-      if (typeof internalData.get === 'function') {
-        for (const key of keysToTry) {
-          const email = await readValue(() => internalData.get(key));
-          if (email) return email;
-        }
-      }
-
-      if (typeof internalData.getRemote === 'function') {
-        for (const host of hostsToTry) {
-          for (const key of keysToTry) {
-            const email = await readValue(() => internalData.getRemote(host, key));
-            if (email) return email;
-          }
-        }
-      }
-
-      if (errors.length) throw new Error(errors[0]);
-      return null;
-    }
-
     async function runInitialSearch() {
       const sharedSearch = new URLSearchParams(window.location.search).get('prof')?.trim();
       if (sharedSearch) {
@@ -455,21 +425,25 @@
         return;
       }
 
-      if (!window.InternalData) return;
-
       try {
-        const searchValue = await fetchInternalEmail();
-        if (!searchValue) {
-          status.textContent = 'Could not read an email from app data. Enter a search manually.';
-          status.dataset.state = 'error';
-          return;
+        status.textContent = 'Choosing a random search from the spreadsheets…';
+        status.dataset.state = 'loading';
+        const sheet = sheets[Math.floor(Math.random() * sheets.length)];
+        const countTable = await getSheetTable(sheet.id, 'select count(B) where B is not null');
+        const rowCount = Number(cellText(countTable.rows?.[0]?.c?.[0]));
+        if (!Number.isInteger(rowCount) || rowCount < 1) {
+          throw new Error('The selected spreadsheet has no non-empty values in column B.');
         }
 
+        const rowIndex = Math.floor(Math.random() * rowCount);
+        const valueTable = await getSheetTable(sheet.id, `select B where B is not null limit 1 offset ${rowIndex}`);
+        const searchValue = cellText(valueTable.rows?.[0]?.c?.[0]).trim();
+        if (!searchValue) throw new Error('The randomly selected column B value is empty.');
         input.value = searchValue;
         form.requestSubmit();
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        status.textContent = `Could not read an email from app data: ${message}`;
+        status.textContent = `Could not choose a random spreadsheet search: ${message}`;
         status.dataset.state = 'error';
       }
     }

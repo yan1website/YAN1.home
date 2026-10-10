@@ -51,7 +51,7 @@
 <body>
   <header id="site-header">
     <nav class="quick-links" aria-label="Quick links">
-      <a class="quick-link" href="list.html" aria-label="Open website list" title="Website list">⏷</a>
+      <a id="website-list-link" class="quick-link" href="list.html" aria-label="Open website list" title="Website list">⏷</a>
       <a class="quick-link" href="https://yan1website.github.io/YAN1.home/profile/index.html" target="_blank" rel="noopener noreferrer" aria-label="Open profile" title="Profile">🪪</a>
       <a class="quick-link" href="https://yan1website.github.io/YAN1.home/search/index.html" target="_blank" rel="noopener noreferrer" aria-label="Open search" title="Search">🔎</a>
     </nav>
@@ -67,6 +67,7 @@
     const status = document.querySelector('#status');
     const siteHeader = document.querySelector('#site-header');
     const focusExitButton = document.querySelector('#focus-exit');
+    const websiteListLink = document.querySelector('#website-list-link');
     const sentinel = document.querySelector('#sentinel');
     const message = document.querySelector('#message');
     const requestedPage = new URLSearchParams(window.location.search).get('page');
@@ -351,6 +352,24 @@
     }
 
     focusExitButton.addEventListener('click', showAllPages);
+
+    websiteListLink.addEventListener('click', event => {
+      event.preventDefault();
+      if (standalone) {
+        const viewerUrl = new URL('index.html', document.baseURI);
+        viewerUrl.searchParams.set('page', 'list.html');
+        window.location.assign(viewerUrl.href);
+        return;
+      }
+
+      let section = [...pages.querySelectorAll('.page')]
+        .find(page => page.dataset.filename === 'list.html');
+      if (!section) {
+        appendPage('list.html');
+        section = pages.lastElementChild;
+      }
+      focusPage(section, section.querySelector('iframe'));
+    });
 
     function appendPage(filename) {
       const section = document.createElement('section');

@@ -19,8 +19,9 @@
 
         function openInYAN1App() {
             if (isYAN1App()) return;
-            if (sessionStorage.getItem("yan1_launched") === "true") return;
-            sessionStorage.setItem("yan1_launched", "true");
+            const pageKey = `yan1_launched:${window.location.pathname}${window.location.search}`;
+            if (sessionStorage.getItem(pageKey) === "true") return;
+            sessionStorage.setItem(pageKey, "true");
 
             const currentURL = window.location.href;
             const cleanPath = currentURL.replace(/^https?:\/\//, "");
@@ -28,7 +29,7 @@
                 "intent://" + cleanPath + "#Intent;" +
                 "scheme=https;" +
                 "package=com.example1.yan1appgen1;" +
-                "S.browser_fallback_url=" + encodeURIComponent(currentURL) + ";" +
+                "S.browser_fallback_url=" + encodeURIComponent(new URL("/YAN1.home/download_app.html", window.location.origin).href) + ";" +
                 "end;";
 
             window.location.href = intentURL;
@@ -477,6 +478,7 @@
 
     </style>
 
+  <script src="../../app-launch.js" defer></script>
 </head>
 
 

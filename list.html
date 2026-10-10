@@ -10,9 +10,14 @@
     body { min-height: 100vh; margin: 0; padding: 28px 18px; color: #f8fafc; background: #111827; font-family: system-ui, sans-serif; }
     main { width: min(100%, 900px); margin: 0 auto; }
     header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+    .heading-actions { display: flex; align-items: center; gap: 10px; min-width: 0; }
     h1 { margin: 0; font-size: clamp(1.5rem, 5vw, 2rem); }
-    .home-link { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid #6b7280; border-radius: 9px; color: #f9fafb; background: #374151; font-size: 24px; line-height: 1; text-decoration: none; }
-    .home-link:hover, .home-link:focus-visible, .site-link:hover, .site-link:focus-visible { background: #4b5563; outline: 2px solid #93c5fd; outline-offset: 2px; }
+    .home-link, #reload-list { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid #6b7280; border-radius: 9px; color: #f9fafb; background: #374151; }
+    .home-link { font-size: 24px; line-height: 1; text-decoration: none; }
+    #reload-list { padding: 9px; cursor: pointer; }
+    #reload-list svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    #reload-list:disabled { cursor: wait; opacity: .65; }
+    .home-link:hover, .home-link:focus-visible, #reload-list:hover:not(:disabled), #reload-list:focus-visible, .site-link:hover, .site-link:focus-visible { background: #4b5563; outline: 2px solid #93c5fd; outline-offset: 2px; }
     #search-form { display: flex; gap: 8px; margin-bottom: 16px; }
     #search-input { flex: 1; min-width: 0; padding: 12px 14px; border: 1px solid #6b7280; border-radius: 8px; color: #f8fafc; background: #1f2937; font: inherit; }
     #search-input:focus-visible, #search-form button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
@@ -32,7 +37,12 @@
 <body>
   <main>
     <header>
-      <h1>Website List</h1>
+      <div class="heading-actions">
+        <h1>Website List</h1>
+        <button id="reload-list" type="button" aria-label="Reload website list" title="Reload website list">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"/></svg>
+        </button>
+      </div>
       <a class="home-link" href="index.html" aria-label="Back to home" title="Back to home">⌂</a>
     </header>
     <form id="search-form" role="search">
@@ -49,6 +59,7 @@
     const searchForm = document.querySelector('#search-form');
     const searchInput = document.querySelector('#search-input');
     const resultCount = document.querySelector('#result-count');
+    const reloadButton = document.querySelector('#reload-list');
     let siteEntries = [];
 
     function isValidPagePath(path) {
@@ -138,8 +149,11 @@
       renderSites(searchInput.value);
     });
     searchInput.addEventListener('input', () => renderSites(searchInput.value));
+    reloadButton.addEventListener('click', loadSites);
 
     async function loadSites() {
+      reloadButton.disabled = true;
+      message.textContent = '';
       try {
         const response = await fetch('list1.json', { cache: 'no-store' });
         if (!response.ok) throw new Error(`Could not read list1.json (${response.status})`);
@@ -162,6 +176,8 @@
         renderSites(searchInput.value);
       } catch (error) {
         message.textContent = `${error.message} Open this site through a local web server so the browser can fetch the JSON file.`;
+      } finally {
+        reloadButton.disabled = false;
       }
     }
 

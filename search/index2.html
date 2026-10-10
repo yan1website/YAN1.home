@@ -149,6 +149,7 @@ iframe{
 </style>
 
 
+  <script src="../app-launch.js" defer></script>
 </head>
 
 
@@ -598,7 +599,7 @@ sendSearch();
 
     document.getElementById("shareLinkButton").addEventListener("click",async function(){
         const searchText=document.getElementById("searchText").value.trim();
-        const shareURL="https://yan1website.github.io/YAN1.search/index2.html?txt="+encodeURIComponent(searchText);
+        const shareURL="https://yan1website.github.io/YAN1.home/YAN1.search/index2.html?txt="+encodeURIComponent(searchText);
 
         if(navigator.share){
             try{

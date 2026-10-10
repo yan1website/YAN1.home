@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="app-launch.js" defer></script>
+
+    <title>YAN1 - Download App</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            color: white;
+            background: #080b18;
+        }
+
+        /* Popup background */
+        .download-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.78);
+            backdrop-filter: blur(8px);
+        }
+
+        /* Popup card */
+        .download-card {
+            width: 100%;
+            max-width: 390px;
+            padding: 30px 23px;
+            text-align: center;
+            border: 1px solid rgba(130, 120, 255, 0.4);
+            border-radius: 22px;
+
+            background:
+                radial-gradient(
+                    circle at top left,
+                    #19265a,
+                    transparent 55%
+                ),
+                radial-gradient(
+                    circle at bottom right,
+                    #42175c,
+                    transparent 55%
+                ),
+                #101326;
+
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.45);
+        }
+
+        /* YAN1 app icon */
+        .app-icon {
+            width: 78px;
+            height: 78px;
+            margin: 0 auto 18px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            border-radius: 21px;
+            background: linear-gradient(135deg, #287bff, #8d42ff);
+
+            font-size: 26px;
+            font-weight: bold;
+            letter-spacing: 1px;
+
+            box-shadow: 0 8px 25px rgba(75, 90, 255, 0.25);
+        }
+
+        .download-card h2 {
+            margin: 0 0 12px;
+            font-size: 25px;
+        }
+
+        .description {
+            margin: 0 0 22px;
+            color: #c5c9dd;
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        /* Download button */
+        .download-button {
+            display: flex;
+            width: 100%;
+            min-height: 49px;
+
+            align-items: center;
+            justify-content: center;
+
+            padding: 14px;
+            border: none;
+            border-radius: 11px;
+
+            color: white;
+            background: linear-gradient(100deg, #3478ff, #874bff);
+
+            font-size: 15px;
+            font-weight: bold;
+            text-decoration: none;
+
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .download-button:hover {
+            opacity: 0.9;
+        }
+
+        .download-button.downloading {
+            opacity: 0.75;
+            cursor: wait;
+            pointer-events: none;
+        }
+
+        /* Close button */
+        .close-button {
+            display: block;
+            width: 100%;
+            min-height: 47px;
+            margin-top: 12px;
+            padding: 13px;
+
+            border: none;
+            border-radius: 11px;
+
+            color: #d6d8e9;
+            background: rgba(255, 255, 255, 0.08);
+
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .close-button:hover {
+            background: rgba(255, 255, 255, 0.14);
+        }
+
+        /* Information text */
+        .small-note {
+            margin: 18px 0 0;
+            color: #9da4c1;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        /* Optional website content */
+        .website-content {
+            padding: 40px 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Your normal website content -->
+    <main class="website-content">
+        <h1>YAN1</h1>
+        <p>Where everything meets.</p>
+    </main>
+
+    <!-- Download popup -->
+    <div class="download-overlay" id="downloadOverlay">
+
+        <div class="download-card">
+
+            <div class="app-icon">YAN1</div>
+
+            <h2>Download YAN1 App</h2>
+
+            <p class="description">
+                Get the YAN1 Android app for a better experience.
+                Download it now and explore YAN1 on your device.
+            </p>
+
+            <a
+                class="download-button"
+                id="downloadButton"
+                href="https://github.com/yan1website/YAN1-APP-GEN1/releases/latest/download/app-debug.apk"
+                onclick="showDownloading()"
+            >
+                Download App
+            </a>
+
+            <button
+                type="button"
+                class="close-button"
+                onclick="closePopup()"
+            >
+                Not now
+            </button>
+
+            <p class="small-note">
+                Android APK download. After downloading, open the
+                file and follow Android's installation instructions.
+            </p>
+
+        </div>
+    </div>
+
+    <script>
+        const APK_URL =
+            "https://github.com/yan1website/YAN1-APP-GEN1/releases/latest/download/app-debug.apk";
+
+        function showDownloading() {
+            const button = document.getElementById("downloadButton");
+
+            button.textContent = "Downloading...";
+            button.classList.add("downloading");
+
+            // Allow the browser to handle the GitHub download directly.
+            // Do not prevent the default link action.
+        }
+
+        function closePopup() {
+            document.getElementById("downloadOverlay").style.display = "none";
+        }
+    </script>
+
+</body>
+</html>
