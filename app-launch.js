@@ -12,21 +12,30 @@
         return segment;
       }
     }).join('/');
-    if (relativePath === 'index.html' && !targetURL.search) return appRoot;
+    let pagePath = relativePath;
+    let pageParams = new URLSearchParams(targetURL.search);
     if (relativePath === 'index.html') {
-      const routeParams = new URLSearchParams(targetURL.search);
-      const requestedPage = routeParams.get('page')
-        || [...routeParams.keys()].find(key => key.endsWith('.html'));
-      return requestedPage && requestedPage !== 'index.html' ? targetURL : null;
+      pagePath = pageParams.get('page')
+        || [...pageParams.keys()].find(key => key.endsWith('.html'));
+      if (!pagePath || pagePath === 'index.html') return null;
+      const routeKey = pageParams.has('page')
+        ? 'page'
+        : [...pageParams.keys()].find(key => key.endsWith('.html'));
+      pageParams.delete(routeKey);
     }
-    if (!relativePath.endsWith('.html')) return null;
-    if (relativePath.split('/').some(segment => !segment || segment === '.' || segment === '..')) return null;
+    if (!pagePath.endsWith('.html')
+      || pagePath.split('/').some(segment => !segment || segment === '.' || segment === '..')) return null;
 
     const viewerURL = new URL('index.html', appRoot);
-    viewerURL.search = `?${encodeURIComponent(relativePath)}`;
-    targetURL.searchParams.forEach((value, key) => viewerURL.searchParams.append(key, value));
+    const remainingQuery = pageParams.toString();
+    viewerURL.search = `?${encodeURIComponent(pagePath)}${remainingQuery ? `&${remainingQuery}` : ''}`;
     viewerURL.hash = targetURL.hash;
-    return viewerURL;
+    return {
+      filename: pagePath,
+      search: pageParams.toString(),
+      hash: targetURL.hash,
+      url: viewerURL.href
+    };
   }
 
   document.addEventListener('click', event => {
@@ -37,15 +46,19 @@
       || link.hasAttribute('download') || link.id === 'website-list-link') return;
 
     const targetURL = new URL(link.href, window.location.href);
-    const viewerURL = viewerURLFor(targetURL);
-    if (!viewerURL) return;
+    const destination = viewerURLFor(targetURL);
+    if (!destination) return;
 
     event.preventDefault();
     try {
-      window.top.location.assign(viewerURL.href);
+      if (typeof window.top.openPageInViewer === 'function') {
+        window.top.openPageInViewer(destination.filename, destination.search, destination.hash);
+      } else {
+        window.top.location.assign(destination.url);
+      }
     } catch (error) {
-      console.error('Could not open the linked page in the YAN1 viewer.', error);
-      window.location.assign(viewerURL.href);
+      console.error('Could not display the linked page inside the YAN1 viewer.', error);
+      window.location.assign(destination.url);
     }
   }, true);
 
