@@ -246,7 +246,7 @@
     async function shareCurrentLocation() {
       const locationName = currentLocationName || locationInput.value.trim();
       if (!locationName) return;
-      const url = new URL("https://yan1website.github.io/YAN1.home/weather&climate.html");
+      const url = new URL("https://yan1website.github.io/YAN1.home/index.html?weather%26climate.html");
       url.searchParams.set("txt", locationName);
       const shareTitle = "YAN1 APP GEN 1";
       const shareText = [

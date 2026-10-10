@@ -78,7 +78,7 @@
 
 		async function shareVideo() {
 			if (!rawVideoValue) return;
-			const url = new URL('https://yan1website.github.io/YAN1.home/youtube1.html');
+			const url = new URL('https://yan1website.github.io/YAN1.home/index.html?youtube1.html');
 			url.searchParams.set('txt', rawVideoValue);
 			const videoTitle = await videoTitlePromise;
 			const shareTitle = 'YAN1 APP GEN 1';

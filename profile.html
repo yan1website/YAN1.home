@@ -321,7 +321,7 @@
           const imageUrl = linkColumns.map(columnIndex => cellText(row.c?.[columnIndex]).trim())
             .find(value => /^https?:\/\//i.test(value));
           if (imageUrl) {
-            const openUrl = new URL('https://yan1website.github.io/YAN1.home/sayora5.html');
+            const openUrl = new URL('https://yan1website.github.io/YAN1.home/index.html?sayora5.html');
             openUrl.searchParams.set('txt', imageUrl.replace(/^https?:\/\//i, ''));
             const openLink = document.createElement('a');
             openLink.className = 'open-sayora-link';

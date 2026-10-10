@@ -119,7 +119,7 @@
       button.title = email ? `Open profile for ${email}` : 'Profile unavailable: email not found';
       button.disabled = !email;
       if (email) button.addEventListener('click', () => {
-        const url = new URL('https://yan1website.github.io/YAN1.home/profile/index.html');
+        const url = new URL('https://yan1website.github.io/YAN1.home/index.html?profile/index.html');
         url.searchParams.set('prof', email);
         window.open(url.href, '_blank', 'noopener,noreferrer');
       });
@@ -194,7 +194,7 @@
     }
 
     async function shareImage(imageUrl) {
-      const link = new URL('https://yan1website.github.io/YAN1.home/sayora5.html');
+      const link = new URL('https://yan1website.github.io/YAN1.home/index.html?sayora5.html');
       link.searchParams.set('txt', imageUrl.replace(/^https:\/\//i, ''));
       const shareTitle = 'YAN1 APP GEN 1';
       const shareText = [

@@ -51,9 +51,9 @@
 <body>
   <header id="site-header">
     <nav class="quick-links" aria-label="Quick links">
-      <a id="website-list-link" class="quick-link" href="list.html" aria-label="Open website list" title="Website list">⏷</a>
-      <a class="quick-link" href="https://yan1website.github.io/YAN1.home/profile/index.html" target="_blank" rel="noopener noreferrer" aria-label="Open profile" title="Profile">🪪</a>
-      <a class="quick-link" href="https://yan1website.github.io/YAN1.home/search/index.html" target="_blank" rel="noopener noreferrer" aria-label="Open search" title="Search">🔎</a>
+      <a id="website-list-link" class="quick-link" href="index.html?list.html" aria-label="Open website list" title="Website list">⏷</a>
+      <a class="quick-link" href="https://yan1website.github.io/YAN1.home/index.html?profile/index.html" target="_blank" rel="noopener noreferrer" aria-label="Open profile" title="Profile">🪪</a>
+      <a class="quick-link" href="https://yan1website.github.io/YAN1.home/index.html?search/index.html" target="_blank" rel="noopener noreferrer" aria-label="Open search" title="Search">🔎</a>
     </nav>
     <p id="status">Picking a page to start…</p>
     <button id="focus-exit" class="focus-exit" type="button" hidden>← All websites</button>
@@ -70,7 +70,16 @@
     const websiteListLink = document.querySelector('#website-list-link');
     const sentinel = document.querySelector('#sentinel');
     const message = document.querySelector('#message');
-    const requestedPage = new URLSearchParams(window.location.search).get('page');
+    const viewerParams = new URLSearchParams(window.location.search);
+    let requestedPage = viewerParams.get('page');
+    if (requestedPage === null) {
+      requestedPage = [...viewerParams.keys()].find(key => key.endsWith('.html')) || null;
+      if (requestedPage !== null) viewerParams.delete(requestedPage);
+    } else {
+      viewerParams.delete('page');
+    }
+    const requestedPageQuery = viewerParams.toString();
+    const requestedPageHash = window.location.hash;
     const standalone = requestedPage !== null;
     if (standalone) document.body.classList.add('standalone');
     let remaining = [];
@@ -170,7 +179,10 @@
         resumeMedia(frame);
       } else if (frame.dataset.requested !== 'true') {
         frame.dataset.requested = 'true';
-        frame.src = new URL(encodedPagePath(frame.dataset.src), document.baseURI).href;
+        const pageURL = new URL(encodedPagePath(frame.dataset.src), document.baseURI);
+        pageURL.search = frame.dataset.search || '';
+        pageURL.hash = frame.dataset.hash || '';
+        frame.src = pageURL.href;
       }
     }
 
@@ -269,7 +281,10 @@
     function loadFrame(frame) {
       if (frame.dataset.loaded === 'true' || frame.dataset.requested === 'true') return;
       frame.dataset.requested = 'true';
-      frame.src = new URL(encodedPagePath(frame.dataset.src), document.baseURI).href;
+      const pageURL = new URL(encodedPagePath(frame.dataset.src), document.baseURI);
+      pageURL.search = frame.dataset.search || '';
+      pageURL.hash = frame.dataset.hash || '';
+      frame.src = pageURL.href;
     }
 
     function unloadFrame(frame) {
@@ -357,7 +372,7 @@
       event.preventDefault();
       if (standalone) {
         const viewerUrl = new URL('index.html', document.baseURI);
-        viewerUrl.searchParams.set('page', 'list.html');
+        viewerUrl.search = `?${encodeURIComponent('list.html')}`;
         window.location.assign(viewerUrl.href);
         return;
       }
@@ -371,7 +386,7 @@
       focusPage(section, section.querySelector('iframe'));
     });
 
-    function appendPage(filename) {
+    function appendPage(filename, search = '', hash = '') {
       const section = document.createElement('section');
       section.className = 'page';
       section.dataset.filename = filename;
@@ -396,7 +411,7 @@
         loadFrame(frame);
       });
 
-      const shareUrl = `https://yan1website.github.io/YAN1.home/${encodedPagePath(filename)}`;
+      const shareUrl = `https://yan1website.github.io/YAN1.home/index.html?${encodeURIComponent(filename)}`;
       const shareButton = document.createElement('button');
       shareButton.className = 'page-action';
       shareButton.type = 'button';
@@ -462,6 +477,8 @@
       frame.loading = 'lazy';
       frame.allow = 'accelerometer; autoplay; camera; clipboard-read; clipboard-write; display-capture; encrypted-media; fullscreen; geolocation; gyroscope; magnetometer; microphone; midi; payment; picture-in-picture; publickey-credentials-get; screen-wake-lock; usb; web-share; xr-spatial-tracking';
       frame.dataset.src = filename;
+      frame.dataset.search = search ? `?${search}` : '';
+      frame.dataset.hash = hash;
       frame.addEventListener('load', () => {
         if (frame.dataset.requested !== 'true') return;
         try {
@@ -561,7 +578,7 @@
         }
         document.title = requestedPage;
         status.textContent = `Opening: ${requestedPage}`;
-        appendPage(requestedPage);
+        appendPage(requestedPage, requestedPageQuery, requestedPageHash);
         return;
       }
 

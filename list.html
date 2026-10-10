@@ -69,10 +69,6 @@
         && path.split('/').every(segment => segment && segment !== '.' && segment !== '..');
     }
 
-    function encodedPagePath(path) {
-      return path.split('/').map(encodeURIComponent).join('/');
-    }
-
     function editDistance(left, right) {
       let previous = Array.from({ length: right.length + 1 }, (_, index) => index);
       for (let row = 1; row <= left.length; row++) {
@@ -117,7 +113,7 @@
         const item = document.createElement('li');
         const link = document.createElement('a');
         link.className = 'site-link';
-        link.href = encodedPagePath(site.name);
+        link.href = `index.html?${encodeURIComponent(site.name)}`;
 
         const image = document.createElement('img');
         image.className = 'site-image';

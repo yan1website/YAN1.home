@@ -65,7 +65,7 @@
 		async function shareWikipediaPage() {
 			if (!currentPageUrl) return;
 			const txtValue = currentPageUrl.replace(/^https:\/\//i, '');
-			const shareUrl = new URL('https://yan1website.github.io/YAN1.home/wikipedia1.html');
+			const shareUrl = new URL('https://yan1website.github.io/YAN1.home/index.html?wikipedia1.html');
 			shareUrl.searchParams.set('txt', txtValue);
 			const shareTitle = 'YAN1 APP GEN 1';
 			const shareText = [

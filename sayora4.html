@@ -120,7 +120,7 @@
       button.title = email ? `Open profile for ${email}` : 'Profile unavailable: email not found';
       button.disabled = !email;
       if (email) button.addEventListener('click', () => {
-        const url = new URL('https://yan1website.github.io/YAN1.home/profile/index.html');
+        const url = new URL('https://yan1website.github.io/YAN1.home/index.html?profile/index.html');
         url.searchParams.set('prof', email);
         window.open(url.href, '_blank', 'noopener,noreferrer');
       });

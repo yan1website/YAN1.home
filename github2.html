@@ -37,7 +37,7 @@
 		const repoPath = (new URLSearchParams(window.location.search).get('txt') || '').trim();
 
 		async function shareRepository() {
-			const url = new URL('https://yan1website.github.io/YAN1.home/github2.html');
+			const url = new URL('https://yan1website.github.io/YAN1.home/index.html?github2.html');
 			url.searchParams.set('txt', repoPath);
 			const text = `YAN1 APP GEN 1\nYAN1 APP GEN 1\nFound something interesting — have a look! ✨\n📂 ${repoPath}\nTHANKS 🙏`;
 			try {

@@ -156,7 +156,7 @@
 
     async function shareVideo() {
       if (!selectedSheetValue) return;
-      const url = new URL('https://yan1website.github.io/YAN1.home/youtube1.html');
+      const url = new URL('https://yan1website.github.io/YAN1.home/index.html?youtube1.html');
       url.searchParams.set('txt', selectedSheetValue);
       const videoTitle = await videoTitlePromise;
       const shareTitle = 'YAN1 APP GEN 1';

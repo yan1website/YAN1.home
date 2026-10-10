@@ -95,7 +95,7 @@
 
 		shareButton.addEventListener('click', async () => {
 			if (!validItemId(itemId)) return;
-			const shareUrl = new URL('https://yan1website.github.io/YAN1.home/archive2.html');
+			const shareUrl = new URL('https://yan1website.github.io/YAN1.home/index.html?archive2.html');
 			shareUrl.searchParams.set('item', itemId);
 			const url = shareUrl.toString();
 			const itemTitle = document.querySelector('#itemTitle').textContent.trim();

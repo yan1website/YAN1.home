@@ -314,7 +314,7 @@
 			shareButton.type = 'button';
 			shareButton.textContent = 'Share';
 			shareButton.addEventListener('click', async () => {
-				const shareUrl = new URL('https://yan1website.github.io/YAN1.home/amazon1.html');
+				const shareUrl = new URL('https://yan1website.github.io/YAN1.home/index.html?amazon1.html');
 				shareUrl.searchParams.set('img', imageUrl);
 				shareUrl.searchParams.set('ama', orderUrl);
 				if (productDetails) shareUrl.searchParams.set('details', productDetails);
