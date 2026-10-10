@@ -50,16 +50,7 @@
     if (!destination) return;
 
     event.preventDefault();
-    try {
-      if (typeof window.top.openPageInViewer === 'function') {
-        window.top.openPageInViewer(destination.filename, destination.search, destination.hash);
-      } else {
-        window.top.location.assign(destination.url);
-      }
-    } catch (error) {
-      console.error('Could not display the linked page inside the YAN1 viewer.', error);
-      window.location.assign(destination.url);
-    }
+    window.top.location.assign(destination.url);
   }, true);
 
   if (window.top !== window.self) return;
