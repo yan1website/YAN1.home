@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>YouTube Channel ID Extractor</title>
+  <meta name="description"
+        content="Extract a YouTube Channel ID from a channel URL or handle for free.">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #101827, #263858);
+      color: #172033;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 560px;
+      padding: 32px;
+      border-radius: 22px;
+      background: #ffffff;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .logo {
+      width: 72px;
+      height: 52px;
+      margin: 0 auto 18px;
+      border-radius: 15px;
+      background: #ff0033;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 29px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 27px;
+      margin-bottom: 12px;
+    }
+
+    .description {
+      text-align: center;
+      color: #64748b;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    input {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      font-size: 15px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      outline: none;
+      margin-bottom: 15px;
+    }
+
+    input:focus {
+      border-color: #e62117;
+      box-shadow: 0 0 0 3px rgba(230, 33, 23, 0.1);
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+
+    .extract-btn {
+      background: #e62117;
+      color: white;
+    }
+
+    .extract-btn:hover:not(:disabled) {
+      background: #bd1911;
+    }
+
+    #status {
+      display: none;
+      padding: 12px;
+      margin-top: 18px;
+      border-radius: 9px;
+      line-height: 1.5;
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+
+    #status.info {
+      display: block;
+      color: #1d4ed8;
+      background: #eff6ff;
+    }
+
+    #status.success {
+      display: block;
+      color: #166534;
+      background: #f0fdf4;
+    }
+
+    #status.error {
+      display: block;
+      color: #b91c1c;
+      background: #fef2f2;
+    }
+
+    .result {
+      display: none;
+      margin-top: 22px;
+      padding: 20px;
+      border-radius: 13px;
+      background: #f1f5f9;
+    }
+
+    .result h2 {
+      font-size: 18px;
+      margin-bottom: 14px;
+      color: #166534;
+    }
+
+    .channel-name {
+      font-size: 14px;
+      color: #475569;
+      margin-bottom: 10px;
+      overflow-wrap: anywhere;
+    }
+
+    .channel-id {
+      padding: 14px;
+      border: 1px solid #dbe3ed;
+      border-radius: 9px;
+      background: white;
+      color: #172033;
+      font-size: 14px;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+      user-select: text;
+      margin-bottom: 12px;
+    }
+
+    .copy-btn {
+      background: #172033;
+      color: white;
+      margin-bottom: 10px;
+    }
+
+    .copy-btn:hover {
+      background: #334155;
+    }
+
+    .form-btn {
+      background: #15803d;
+      color: white;
+      display: none;
+    }
+
+    .form-btn:hover {
+      background: #166534;
+    }
+
+    .note {
+      text-align: center;
+      font-size: 12px;
+      line-height: 1.7;
+      color: #64748b;
+      margin-top: 24px;
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 23px;
+      }
+
+      h1 {
+        font-size: 23px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="container">
+
+    <div class="logo" aria-hidden="true">▶</div>
+
+    <h1>YouTube Channel ID Extractor</h1>
+
+    <p class="description">
+      Find the unique ID of any YouTube channel using
+      its channel URL or @handle.
+      The Google Form will open automatically after extraction.
+    </p>
+
+    <form id="extractForm">
+
+      <label for="channelInput">
+        YouTube Channel URL or Handle
+      </label>
+
+      <input
+        type="text"
+        id="channelInput"
+        placeholder="https://youtube.com/@techlolhub1"
+        autocomplete="url"
+        required
+      >
+
+      <button type="submit" class="extract-btn" id="extractBtn">
+        Extract Channel ID
+      </button>
+
+    </form>
+
+    <div id="status" role="status" aria-live="polite"></div>
+
+    <section class="result" id="result">
+
+      <h2>✓ Channel ID Found</h2>
+
+      <p class="channel-name" id="channelName"></p>
+
+      <div class="channel-id" id="channelId"></div>
+
+      <button type="button" class="copy-btn" id="copyBtn">
+        Copy Channel ID
+      </button>
+
+      <button type="button" class="form-btn" id="formBtn">
+        Open Prefilled Google Form
+      </button>
+
+    </section>
+
+    <p class="note">
+      Powered by YouTube Data API v3.<br>
+      Free to use within your available API quota.
+    </p>
+
+  </main>
+
+  <script>
+    "use strict";
+
+    // IMPORTANT:
+    // Replace this with your new, restricted YouTube Data API key.
+    // Never use an unrestricted API key on a public website.
+    const API_KEY = "AIzaSyAIINy5jnmsLtadpbgKKgpocDzgJ767l_A";
+
+    // Google Form configuration
+    const GOOGLE_FORM_BASE =
+      "https://docs.google.com/forms/d/e/1FAIpQLSc0OJ1YTmSZc3DS6T1UgF6hhZ9KsoJpoinISMv-fA67HEsexQ/viewform";
+
+    // Google Form entry IDs
+    const CHANNEL_ID_ENTRY = "entry.1678482785";
+    const CHANNEL_NAME_ENTRY = "entry.1660380900";
+
+    const form = document.getElementById("extractForm");
+    const input = document.getElementById("channelInput");
+    const button = document.getElementById("extractBtn");
+    const statusBox = document.getElementById("status");
+    const resultBox = document.getElementById("result");
+    const channelIdBox = document.getElementById("channelId");
+    const channelNameBox = document.getElementById("channelName");
+    const copyButton = document.getElementById("copyBtn");
+    const formButton = document.getElementById("formBtn");
+
+    let currentFormUrl = "";
+
+    function showStatus(message, type) {
+      statusBox.textContent = message;
+      statusBox.className = type;
+    }
+
+    function parseInput(rawInput) {
+      const value = rawInput.trim();
+
+      // Direct YouTube Channel ID
+      if (/^UC[A-Za-z0-9_-]{22}$/.test(value)) {
+        return {
+          type: "id",
+          value: value
+        };
+      }
+
+      // Handle without a URL, e.g. @techlolhub1
+      if (!value.includes("/") && !/\s/.test(value)) {
+        const handle = value.replace(/^@/, "");
+
+        if (/^[A-Za-z0-9._-]+$/.test(handle)) {
+          return {
+            type: "handle",
+            value: handle
+          };
+        }
+      }
+
+      let url;
+
+      try {
+        url = new URL(
+          /^https?:\/\//i.test(value)
+            ? value
+            : "https://" + value
+        );
+      } catch {
+        throw new Error(
+          "Enter a valid YouTube channel URL or handle."
+        );
+      }
+
+      const hostname = url.hostname.toLowerCase();
+
+      if (
+        hostname !== "youtube.com" &&
+        hostname !== "www.youtube.com" &&
+        hostname !== "m.youtube.com"
+      ) {
+        throw new Error(
+          "Please enter a YouTube channel URL, not another website."
+        );
+      }
+
+      const parts = url.pathname.split("/").filter(Boolean);
+
+      if (!parts.length) {
+        throw new Error("The channel URL is incomplete.");
+      }
+
+      // Example: youtube.com/channel/UC...
+      if (parts[0] === "channel" && parts[1]) {
+        if (/^UC[A-Za-z0-9_-]{22}$/.test(parts[1])) {
+          return {
+            type: "id",
+            value: parts[1]
+          };
+        }
+
+        throw new Error("The Channel ID in this URL is invalid.");
+      }
+
+      // Example: youtube.com/@techlolhub1
+      if (parts[0].startsWith("@")) {
+        return {
+          type: "handle",
+          value: parts[0].slice(1)
+        };
+      }
+
+      // Example: youtube.com/user/legacyusername
+      if (parts[0] === "user" && parts[1]) {
+        return {
+          type: "username",
+          value: parts[1]
+        };
+      }
+
+      throw new Error(
+        "Unsupported URL. Enter a /channel/UC... URL, an @handle, or a /user/ URL."
+      );
+    }
+
+    async function getChannel(type, value) {
+      const params = new URLSearchParams({
+        part: "snippet",
+        key: API_KEY
+      });
+
+      if (type === "id") {
+        params.set("id", value);
+      } else if (type === "handle") {
+        params.set("forHandle", value);
+      } else if (type === "username") {
+        params.set("forUsername", value);
+      }
+
+      const response = await fetch(
+        "https://www.googleapis.com/youtube/v3/channels?" +
+        params.toString()
+      );
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error("Invalid response from the YouTube API.");
+      }
+
+      if (!response.ok) {
+        const apiMessage = data.error?.message || "";
+
+        if (response.status === 403) {
+          throw new Error(
+            "API access denied. Check your API key, website restrictions, " +
+            "YouTube Data API v3, and available quota."
+          );
+        }
+
+        if (response.status === 400) {
+          throw new Error(
+            "Invalid API request. Check your API key and input."
+          );
+        }
+
+        throw new Error(
+          apiMessage || "Unable to contact the YouTube API."
+        );
+      }
+
+      if (!data.items || data.items.length === 0) {
+        throw new Error(
+          "Channel not found. Check the URL or handle and try again."
+        );
+      }
+
+      return {
+        id: data.items[0].id,
+        name: data.items[0].snippet?.title || "YouTube Channel"
+      };
+    }
+
+    // Build the Google Form URL with both fields prefilled.
+    function buildPrefilledFormUrl(channel) {
+      const params = new URLSearchParams();
+
+      params.set("usp", "pp_url");
+      params.set(CHANNEL_ID_ENTRY, channel.id);
+      params.set(CHANNEL_NAME_ENTRY, channel.name);
+
+      return GOOGLE_FORM_BASE + "?" + params.toString();
+    }
+
+    form.addEventListener("submit", async function (event) {
+      event.preventDefault();
+
+      resultBox.style.display = "none";
+      statusBox.className = "";
+      formButton.style.display = "none";
+      currentFormUrl = "";
+
+      if (
+        !API_KEY ||
+        API_KEY === "PASTE_YOUR_RESTRICTED_API_KEY_HERE"
+      ) {
+        showStatus(
+          "Please add your restricted YouTube Data API key in the code.",
+          "error"
+        );
+        return;
+      }
+
+      let parsed;
+
+      try {
+        parsed = parseInput(input.value);
+      } catch (error) {
+        showStatus(error.message, "error");
+        return;
+      }
+
+      // Open a blank tab immediately during the user's click.
+      // This helps avoid browser popup blockers after the API request.
+      let formTab = null;
+
+      try {
+        formTab = window.open("about:blank", "_blank");
+
+        if (formTab) {
+          formTab.document.title = "Loading Google Form";
+          formTab.document.body.textContent =
+            "Finding your YouTube channel. Please wait...";
+        }
+      } catch {
+        formTab = null;
+      }
+
+      button.disabled = true;
+      button.textContent = "Extracting...";
+
+      showStatus(
+        "Connecting to YouTube and finding the channel...",
+        "info"
+      );
+
+      try {
+        const channel = await getChannel(
+          parsed.type,
+          parsed.value
+        );
+
+        channelIdBox.textContent = channel.id;
+        channelNameBox.textContent = "Channel: " + channel.name;
+
+        currentFormUrl = buildPrefilledFormUrl(channel);
+
+        resultBox.style.display = "block";
+
+        showStatus(
+          "Channel ID extracted successfully!",
+          "success"
+        );
+
+        // Navigate the newly opened tab to the prefilled form.
+        if (formTab && !formTab.closed) {
+          try {
+            formTab.location.href = currentFormUrl;
+          } catch {
+            formButton.style.display = "block";
+          }
+        } else {
+          // Popup blocked: provide a button the user can click.
+          formButton.style.display = "block";
+
+          showStatus(
+            "Channel extracted successfully. Your browser blocked the new tab. " +
+            "Click Open Prefilled Google Form below to continue.",
+            "info"
+          );
+        }
+
+      } catch (error) {
+        // Do not leave a blank tab open when extraction fails.
+        if (formTab && !formTab.closed) {
+          formTab.close();
+        }
+
+        showStatus(
+          error.message || "Something went wrong. Please try again.",
+          "error"
+        );
+
+      } finally {
+        button.disabled = false;
+        button.textContent = "Extract Channel ID";
+      }
+    });
+
+    // Copy Channel ID
+    copyButton.addEventListener("click", async function () {
+      const id = channelIdBox.textContent;
+
+      try {
+        await navigator.clipboard.writeText(id);
+
+        copyButton.textContent = "Copied Successfully!";
+
+        setTimeout(function () {
+          copyButton.textContent = "Copy Channel ID";
+        }, 1800);
+
+      } catch {
+        const selection = window.getSelection();
+        const range = document.createRange();
+
+        range.selectNodeContents(channelIdBox);
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        showStatus(
+          "Select the highlighted ID and press Ctrl+C to copy.",
+          "info"
+        );
+      }
+    });
+
+    // Fallback button for browsers that block automatic new tabs.
+    formButton.addEventListener("click", function () {
+      if (currentFormUrl) {
+        window.open(currentFormUrl, "_blank", "noopener,noreferrer");
+      }
+    });
+  </script>
+
+</body>
+</html>

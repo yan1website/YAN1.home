@@ -46,6 +46,117 @@
             text-align: center;
         }
 
+        .search-header {
+
+            padding: 14px 18px;
+
+            text-align: left;
+
+        }
+
+
+        #search-form {
+
+            display: flex;
+
+            gap: 10px;
+
+            width: 100%;
+
+            max-width: 900px;
+
+            margin: auto;
+
+        }
+
+
+        #search-input {
+
+            flex: 1;
+
+            min-width: 0;
+
+            padding: 12px 14px;
+
+            border: 1px solid #444;
+
+            border-radius: 8px;
+
+            background: #181818;
+
+            color: white;
+
+            font: inherit;
+
+        }
+
+
+        #search-input:focus-visible {
+
+            outline: 2px solid #9ac7ff;
+
+            outline-offset: 2px;
+
+        }
+
+
+        #search-button {
+
+            padding: 0 20px;
+
+            border: 0;
+
+            border-radius: 8px;
+
+            background: #d71920;
+
+            color: white;
+
+            font: inherit;
+
+            font-weight: bold;
+
+            cursor: pointer;
+
+        }
+
+
+        #search-button:disabled {
+
+            opacity: 0.65;
+
+            cursor: wait;
+
+        }
+
+        .register-link {
+
+            display: block;
+
+            width: 100%;
+
+            max-width: 900px;
+
+            margin: 10px auto 0;
+
+            color: #9ac7ff;
+
+            font-size: 14px;
+
+            text-decoration: none;
+
+        }
+
+
+        .register-link:hover,
+        .register-link:focus-visible {
+
+            color: white;
+
+            text-decoration: underline;
+
+        }
+
 
         header h1 {
 
@@ -71,11 +182,17 @@
 
             width: 100%;
 
-            max-width: 900px;
+            max-width: 1400px;
 
             margin: auto;
 
             padding: 20px;
+
+            display: grid;
+
+            grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+
+            gap: 20px;
 
         }
 
@@ -87,8 +204,6 @@
             border-radius: 12px;
 
             overflow: hidden;
-
-            margin-bottom: 30px;
 
             border: 1px solid #292929;
 
@@ -159,6 +274,18 @@
             font-weight: bold;
 
             line-height: 1.4;
+
+        }
+
+        .video-channel {
+
+            margin-top: 8px;
+
+            color: #9ac7ff;
+
+            font-size: 13px;
+
+            overflow-wrap: anywhere;
 
         }
 
@@ -294,6 +421,30 @@
 
         }
 
+        @media (max-width: 520px) {
+
+            .search-header {
+
+                padding: 12px;
+
+            }
+
+            #search-button {
+
+                padding: 0 14px;
+
+            }
+
+            #videos {
+
+                padding: 12px;
+
+                gap: 14px;
+
+            }
+
+        }
+
     </style>
 
   <script src="../app-launch.js" defer></script>
@@ -302,8 +453,22 @@
 
 <body>
 
+<header class="search-header">
+    <form id="search-form" role="search">
+        <input
+            id="search-input"
+            type="search"
+            placeholder="Search channels..."
+            aria-label="Search channel names in column D"
+            autocomplete="off"
+            required
+        >
+        <button id="search-button" type="submit">Search</button>
+    </form>
+    <a class="register-link" href="index2.html">Register your YouTube channel</a>
+</header>
 
-<div id="status">
+<div id="status" role="status" aria-live="polite">
     Connecting to YAN1 App...
 </div>
 
@@ -377,7 +542,8 @@ import feedparser
 import json
 import random
 
-SHEET_ID = "1qkFOAcrXXBjbAJoHLorSyTXMpPrRfBoX5DDGGstiP8M"
+SHEET_ID = "1EaWCnp7qrrNI1zrRBKiqg6ss3pSo8WRAan4ZkEi1CQs"
+SEARCH_TERM = None
 SHEET_QUERY_URL = (
     "https://docs.google.com/spreadsheets/d/"
     + SHEET_ID
@@ -406,29 +572,27 @@ def sheet_query(query):
 
 def get_random_channel_id():
 
-    count_data = sheet_query("select count(H) where H is not null")
+    count_data = sheet_query("select count(C) where C is not null")
     count_cell = count_data["table"]["rows"][0]["c"][0]
     channel_count = int(count_cell.get("v", 0)) if count_cell else 0
 
     if channel_count == 0:
-        raise ValueError("Column H does not contain any channel IDs")
+        raise ValueError("Column C does not contain any channel IDs")
 
     random_offset = random.randrange(channel_count)
     channel_data = sheet_query(
-        "select H where H is not null limit 1 offset "
+        "select C where C is not null limit 1 offset "
         + str(random_offset)
     )
     channel_cell = channel_data["table"]["rows"][0]["c"][0]
     channel_id = str(channel_cell.get("v", "")).strip() if channel_cell else ""
 
     if not channel_id:
-        raise ValueError("Selected row in column H is empty")
+        raise ValueError("Selected row in column C is empty")
 
     return channel_id, random_offset
 
-try:
-
-    channel_id, random_offset = get_random_channel_id()
+def get_channel_videos(channel_id, channel_name=""):
     rss_url = (
         "https://www.youtube.com/feeds/videos.xml"
         "?channel_id=" + channel_id
@@ -472,6 +636,9 @@ try:
                 ""
             ),
 
+            "channel":
+                channel_name,
+
             "url":
                 "https://www.youtube.com/watch?v="
                 + video_id,
@@ -481,15 +648,53 @@ try:
                 + video_id
         })
 
+    return videos
 
-    print(
-        json.dumps({
+
+def find_matching_channels(search_term):
+    sheet_data = sheet_query(
+        "select C, D where C is not null and D is not null"
+    )
+    matching_channels = []
+
+    for row in sheet_data["table"]["rows"]:
+        cells = row.get("c") or []
+        channel_cell = cells[0] if len(cells) > 0 else None
+        name_cell = cells[1] if len(cells) > 1 else None
+        channel_id = str(channel_cell.get("v", "")).strip() if channel_cell else ""
+        channel_name = str(name_cell.get("v", "")).strip() if name_cell else ""
+
+        if channel_id and search_term.casefold() in channel_name.casefold():
+            matching_channels.append((channel_id, channel_name))
+
+    return matching_channels
+
+
+try:
+    if SEARCH_TERM is None:
+        channel_id, random_offset = get_random_channel_id()
+        videos = get_channel_videos(channel_id)
+        result = {
             "success": True,
             "videos": videos,
             "selected_offset": random_offset,
             "selected_channel_id": channel_id
-        })
-    )
+        }
+    else:
+        matching_channels = find_matching_channels(SEARCH_TERM)
+        videos = []
+
+        for channel_id, channel_name in matching_channels:
+            videos.extend(get_channel_videos(channel_id, channel_name))
+
+        result = {
+            "success": True,
+            "search_term": SEARCH_TERM,
+            "matched_channels": len(matching_channels),
+            "videos": videos
+        }
+
+    print(json.dumps(result))
 
 except Exception as e:
 
@@ -533,15 +738,16 @@ function handlePythonResult(output) {
         }
 
 
-        const videos =
-            data.videos || [];
+        const videos = data.videos || [];
+        const status = document.getElementById("status");
 
-
-        document.getElementById(
-            "status"
-        ).textContent =
-            videos.length +
-            " videos received";
+        if (data.search_term !== undefined) {
+            status.textContent = data.matched_channels
+                ? `Found ${data.matched_channels} matching channels and ${videos.length} videos`
+                : `No channels matched "${data.search_term}" in column D`;
+        } else {
+            status.textContent = videos.length + " videos received";
+        }
 
 
         /*
@@ -551,6 +757,8 @@ function handlePythonResult(output) {
         displayVideos(
             videos
         );
+
+        document.getElementById("search-button").disabled = false;
 
     }
     catch (error) {
@@ -564,6 +772,8 @@ function handlePythonResult(output) {
         showError(
             "Unable to read Python result"
         );
+
+        document.getElementById("search-button").disabled = false;
 
     }
 
@@ -734,6 +944,19 @@ function createVideoCard(video) {
     title.textContent =
         video.title;
 
+    info.appendChild(
+    title
+    );
+
+    if (video.channel) {
+    const channel =
+        document.createElement("div");
+
+    channel.className = "video-channel";
+    channel.textContent = video.channel;
+    info.appendChild(channel);
+    }
+
 
     const date =
         document.createElement(
@@ -820,19 +1043,9 @@ function createVideoCard(video) {
         "click",
         async function() {
 
-            const youtubeUrl =
-                video.url ||
-                "https://www.youtube.com/watch?v=" + video.id;
-
-            const youtubePath =
-                youtubeUrl.replace(/^https?:\/\//i, "");
-
             const permanentUrl =
-                "https://yan1website.github.io/YAN1.home/index.html?youtube/index1.html" +
-                new URLSearchParams({
-                    txt: youtubePath,
-                    title: video.title
-                }).toString();
+                "https://yan1website.github.io/YAN1.home/index.html?youtube1.html=&txt=" +
+                encodeURIComponent(video.id);
 
             const shareMessageText =
                 "YAN1 APP GEN 1\n" +
@@ -900,11 +1113,6 @@ function createVideoCard(video) {
 
 
     info.appendChild(
-        title
-    );
-
-
-    info.appendChild(
         date
     );
 
@@ -940,6 +1148,9 @@ ERROR
 */
 
 function showError(message) {
+
+    document.getElementById("loader").style.display = "none";
+    document.getElementById("search-button").disabled = false;
 
     document.getElementById(
         "status"
@@ -1062,6 +1273,33 @@ window.onPythonError = function(errorMessage, callbackId) {
         console.error("Global Catch - Python Error:\n", errorMessage);
     }
 };
+
+
+document.getElementById("search-form").addEventListener("submit", function(event) {
+    event.preventDefault();
+
+    const searchTerm = document.getElementById("search-input").value.trim();
+    if (!searchTerm) return;
+
+    document.getElementById("search-button").disabled = true;
+    document.getElementById("status").textContent = "Searching column D...";
+    document.getElementById("videos").innerHTML = "";
+    document.getElementById("loader").style.display = "block";
+
+    const searchPythonCode = pythonCode.replace(
+        "SEARCH_TERM = None",
+        "SEARCH_TERM = " + JSON.stringify(searchTerm)
+    );
+
+    runPythonOnDevice(
+        searchPythonCode,
+        handlePythonResult,
+        function(errorMessage) {
+            showError(errorMessage || "Could not search the channel list.");
+        }
+    );
+});
+
 
 document.getElementById("status").textContent = "Requesting videos...";
 

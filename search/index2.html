@@ -53,11 +53,18 @@ input{
 
 }
 
- #shareLinkButton{
-    position:fixed;
-    top:16px;
-    right:16px;
-    z-index:1000;
+.search-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:16px;
+}
+
+.search-header h2{
+    margin:0;
+}
+
+#shareLinkButton{
     width:48px;
     height:48px;
     padding:0;
@@ -155,10 +162,6 @@ iframe{
 
 <body>
 
-<button id="shareLinkButton" type="button" title="Copy share link" aria-label="Copy share link">ᯓ➤</button>
-
-
-
 <div class="container">
 
 
@@ -166,7 +169,10 @@ iframe{
 <div class="search-box">
 
 
+<div class="search-header">
 <h2>Search</h2>
+<button id="shareLinkButton" type="button" title="Copy share link" aria-label="Copy share link">ᯓ➤</button>
+</div>
 
 
 <input
@@ -597,15 +603,25 @@ sendSearch();
 
 });
 
-    document.getElementById("shareLinkButton").addEventListener("click",async function(){
+    const shareLinkButton=document.getElementById("shareLinkButton");
+
+    shareLinkButton.addEventListener("click",async function(){
         const searchText=document.getElementById("searchText").value.trim();
         const shareURL="https://yan1website.github.io/YAN1.home/index.html?search%2Findex2.html&txt="+encodeURIComponent(searchText);
+        const shareText=[
+            "YAN1 APP GEN 1",
+            "YAN1 APP GEN 1",
+            "Found something interesting — have a look! ✨",
+            "🌐 "+searchText,
+            "THANKS 🙏"
+        ].join("\n");
+        const shareContent=shareText+"\n"+shareURL;
 
         if(navigator.share){
             try{
                 await navigator.share({
-                    title:"YAN1 Search",
-                    text:searchText ? "Search: "+searchText : "Open YAN1 Search",
+                    title:"YAN1 APP GEN 1",
+                    text:shareText,
                     url:shareURL
                 });
                 return;
@@ -616,7 +632,7 @@ sendSearch();
         }
 
         try{
-            await navigator.clipboard.writeText(shareURL);
+            await navigator.clipboard.writeText(shareContent);
             this.title="Link copied";
             this.setAttribute("aria-label","Share link copied");
             window.setTimeout(()=>{
@@ -625,7 +641,7 @@ sendSearch();
             },1800);
         }
         catch(error){
-            window.prompt("Copy this share link:",shareURL);
+            window.prompt("Copy this share link:",shareContent);
         }
     });
 
